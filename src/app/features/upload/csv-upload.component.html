@@ -1,0 +1,113 @@
+<div class="upload-container">
+  <div class="upload-card">
+    <!-- Header -->
+    <div class="upload-header">
+      <h1>Upload Your Bank Statement</h1>
+      <p class="subtitle">Drag and drop your HDFC CSV file to get started</p>
+    </div>
+
+    <!-- Error Banner -->
+    <div class="error-banner" *ngIf="error">
+      <svg class="error-icon" viewBox="0 0 24 24">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+      </svg>
+      <span>{{ error }}</span>
+      <button class="error-close" (click)="error = null">&times;</button>
+    </div>
+
+    <!-- Drop Zone -->
+    <div class="drop-zone"
+         [class.dragging]="isDragging"
+         [class.has-data]="rows.length > 0"
+         (dragover)="onDragOver($event)"
+         (dragleave)="onDragLeave($event)"
+         (drop)="onDrop($event)"
+         *ngIf="!rows.length">
+
+      <svg class="upload-icon" viewBox="0 0 24 24">
+        <path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/>
+      </svg>
+
+      <h3>Drop your CSV file here</h3>
+      <p>or</p>
+
+      <label class="btn file-input-label">
+        Browse Files
+        <input type="file"
+               accept=".csv,.txt"
+               (change)="onFileSelect($event)"
+               class="file-input">
+      </label>
+
+      <p class="file-hint">Supported: HDFC CSV/TXT statements only</p>
+    </div>
+
+    <!-- Progress Bar -->
+    <div class="progress-container" *ngIf="isParsing">
+      <div class="progress-bar">
+        <div class="progress-fill" [style.width.%]="parseProgress"></div>
+      </div>
+      <p class="progress-text">Parsing your transactions...</p>
+    </div>
+
+    <!-- Results Section -->
+    <div class="results" *ngIf="rows.length > 0 && !isParsing">
+      <!-- Summary Stats -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <h4>Total Transactions</h4>
+          <p class="stat-value">{{ totalRows }}</p>
+        </div>
+        <div class="stat-card debit">
+          <h4>Debits</h4>
+          <p class="stat-value">{{ debitCount }}</p>
+        </div>
+        <div class="stat-card credit">
+          <h4>Credits</h4>
+          <p class="stat-value">{{ creditCount }}</p>
+        </div>
+        <div class="stat-card" *ngIf="errorCount > 0">
+          <h4>Skipped Rows</h4>
+          <p class="stat-value error">{{ errorCount }}</p>
+        </div>
+      </div>
+
+      <!-- Preview Table -->
+      <div class="preview-section">
+        <h3>Preview (First 10 transactions)</h3>
+        <div class="table-wrapper">
+          <table class="preview-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Description</th>
+                <th class="amount-header">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let txn of previewRows">
+                <td class="date-cell">{{ txn.date }}</td>
+                <td class="narration-cell">{{ txn.narration }}</td>
+                <td class="amount-cell" [class.debit]="txn.amount < 0" [class.credit]="txn.amount > 0">
+                  <span class="amount-sign">{{ txn.amount < 0 ? '-' : '+' }}</span>
+                  {{ formatAmount(txn.amount) }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="actions">
+        <button class="btn btn-secondary" (click)="reset()">
+          Upload Another File
+        </button>
+        <button class="btn btn-primary" disabled>
+          Continue to Analysis
+          <span class="coming-soon">Coming Soon</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
