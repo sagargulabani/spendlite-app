@@ -43,7 +43,6 @@ export class CsvParserService {
             headerValidated = true;
           }
           const parsed = this.parseHdfcRow(result.data);
-          console.log(parsed)
           if (parsed) {
             rows.push(parsed);
           } else {
