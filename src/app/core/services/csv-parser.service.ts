@@ -42,7 +42,6 @@ export class CsvParserService {
             }
             headerValidated = true;
           }
-          console.log(result.data)
           const parsed = this.parseHdfcRow(result.data);
           console.log(parsed)
           if (parsed) {
@@ -89,82 +88,45 @@ export class CsvParserService {
     return matchCount >= 3;
   }
 
-  private parseHdfcRow(row: any): ParsedTransaction | null {
-    try {
-      // Try different key variations (with/without spaces, with/without periods)
-      const dateKeys = ['Date', ' Date', 'Date ', ' Date ', ' Date     '];
-      const narrationKeys = ['Narration', ' Narration', 'Narration ', ' Narration ', 'Narration                                                                                                                '];
-      const withdrawalKeys = ['Withdrawal Amt.', ' Withdrawal Amt.', 'Withdrawal Amt. ', ' Withdrawal Amt. ', 'Withdrawal Amt', ' Withdrawal Amt', 'Debit Amount       ', 'Debit Amount'];
-      const depositKeys = ['Deposit Amt.', ' Deposit Amt.', 'Deposit Amt. ', ' Deposit Amt. ', 'Deposit Amt', ' Deposit Amt', 'Credit Amount      ', 'Credit Amount'];
-
-      let date = null, narration = null, withdrawal = null, deposit = null;
-
-      // Find the correct keys
-      for (const key of dateKeys) {
-        if (row[key] !== undefined) {
-          date = row[key];
-          break;
-        }
-      }
-      for (const key of narrationKeys) {
-        if (row[key] !== undefined) {
-          narration = row[key];
-          break;
-        }
-      }
-      for (const key of withdrawalKeys) {
-        if (row[key] !== undefined) {
-          withdrawal = row[key];
-          break;
-        }
-      }
-      for (const key of depositKeys) {
-        if (row[key] !== undefined) {
-          deposit = row[key];
-          break;
-        }
-      }
-
-      if (!date || !narration) {
-        return null;
-      }
-
-      // Parse date
-      const isoDate = this.toIso(date);
-      if (!isoDate) {
-        return null;
-      }
-
-      // Parse amount
-      const withdrawalAmount = this.num(withdrawal);
-      const depositAmount = this.num(deposit);
-
-      // If both are present, prefer withdrawal as negative
-      let amount: number;
-      if (withdrawalAmount > 0) {
-        amount = -withdrawalAmount;
-      } else if (depositAmount > 0) {
-        amount = depositAmount;
-      } else {
-        return null; // Skip if no amount
-      }
-
-      // Clean narration - handle extra spaces in bank data
-      const cleanNarration = narration
-        .toString()
-        .trim()
-        .replace(/\s+/g, ' '); // Collapse multiple spaces
-
-      return {
-        date: isoDate,
-        narration: cleanNarration,
-        amount: amount,
-        source: 'HDFC-CSV'
-      };
-    } catch (error) {
-      return null;
+  private parseHdfcRow(row: Record<string, any>): ParsedTransaction | null {
+    // 1. Normalise the headers coming from Papa Parse
+    const norm: Record<string, any> = {};
+    for (const [k, v] of Object.entries(row)) {
+      const cleanKey = k
+        .replace(/\./g, '')        // drop periods
+        .replace(/\s+/g, ' ')      // collapse interior runs of spaces
+        .trim()                    // trim ends
+        .toLowerCase();            // make comparisons case-insensitive
+      norm[cleanKey] = v;
     }
+
+    // 2. Grab the fields you care about
+    const rawDate = norm['date'];
+    const rawNarration = norm['narration'];
+    const rawDebit = norm['withdrawal amt'] ?? norm['debit amount'];
+    const rawCredit = norm['deposit amt'] ?? norm['credit amount'];
+
+    if (!rawDate || !rawNarration) return null;
+
+    const isoDate = this.toIso(rawDate);
+    if (!isoDate) return null;
+
+    const debitAmount = this.num(rawDebit);
+    const creditAmount = this.num(rawCredit);
+
+    let amount = 0;
+    if (debitAmount > 0) amount = -debitAmount;
+    else if (creditAmount > 0) amount = creditAmount;
+    else return null;
+
+    return {
+      date: isoDate,
+      narration: rawNarration.toString().trim().replace(/\s+/g, ' '),
+      amount,
+      source: 'HDFC-CSV'
+    };
   }
+
 
   private toIso(dateStr: string): string | null {
     if (!dateStr) return null;

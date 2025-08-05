@@ -50,6 +50,7 @@ export class CsvUploadComponent {
   }
 
   onFileSelect(event: Event): void {
+    console.log("file selected")
     const input = event.target as HTMLInputElement;
     if (input.files && input.files.length > 0) {
       this.handleFile(input.files[0]);
