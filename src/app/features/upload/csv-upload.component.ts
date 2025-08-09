@@ -1,12 +1,15 @@
 import { Component, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CsvParserService, CsvParseError } from '../../core/services/csv-parser.service';
+import { AccountService } from '../../core/services/account.service';
+import { ImportService } from '../../core/services/import.service';
 import { ParsedTransaction } from '../../core/models/transaction.model';
+import { AccountPickerComponent } from '../account-picker-component/account-picker-component';
 
 @Component({
   selector: 'app-csv-upload',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, AccountPickerComponent],
   templateUrl: './csv-upload.component.html',
   styleUrls: ['./csv-upload.component.scss']
 })
@@ -16,6 +19,8 @@ export class CsvUploadComponent {
   isParsing = signal(false);
   parseProgress = signal(0);
   error = signal<string | null>(null);
+  currentFile = signal<File | null>(null);
+  importSuccess = signal(false);
 
   // Results signals
   rows = signal<ParsedTransaction[]>([]);
@@ -27,7 +32,11 @@ export class CsvUploadComponent {
   creditCount = computed(() => this.rows().filter(r => r.amount > 0).length);
   previewRows = computed(() => this.rows().slice(0, 10));
 
-  constructor(private csvParser: CsvParserService) {}
+  constructor(
+    private csvParser: CsvParserService,
+    public accountService: AccountService,
+    private importService: ImportService
+  ) {}
 
   onDragOver(event: DragEvent): void {
     event.preventDefault();
@@ -60,10 +69,18 @@ export class CsvUploadComponent {
   }
 
   private async handleFile(file: File): Promise<void> {
+    // Check if account is selected
+    if (!this.accountService.selectedAccountId()) {
+      this.error.set('Please select an account before uploading a file.');
+      return;
+    }
+
     // Reset state using signals
     this.error.set(null);
     this.rows.set([]);
     this.errorCount.set(0);
+    this.importSuccess.set(false);
+    this.currentFile.set(file);
 
     // Validate file type - support both .csv and .txt
     const fileName = file.name.toLowerCase();
@@ -80,9 +97,10 @@ export class CsvUploadComponent {
       await new Promise(resolve => setTimeout(resolve, 100));
 
       // Start progress animation
-      // this.animateProgress();
+      this.animateProgress();
 
       console.log('Starting to parse file:', file.name, 'Size:', file.size);
+      console.log('Selected account:', this.accountService.selectedAccount());
 
       const result = await this.csvParser.parseFile(file);
 
@@ -91,10 +109,22 @@ export class CsvUploadComponent {
       this.rows.set(result.rows);
       this.errorCount.set(result.errors);
 
+      // Save import record to IndexedDB
+      const accountId = this.accountService.selectedAccountId()!;
+      const importId = await this.importService.createImportRecord(
+        accountId,
+        file.name,
+        file.size,
+        result.rows,
+        result.errors
+      );
+
+      console.log('Import record saved with ID:', importId);
       console.log('Stats - Total:', this.totalRows(), 'Debits:', this.debitCount(), 'Credits:', this.creditCount());
 
       // Complete the progress bar
       this.parseProgress.set(100);
+      this.importSuccess.set(true);
 
       // Small delay before hiding progress to show completion
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -136,5 +166,7 @@ export class CsvUploadComponent {
     this.rows.set([]);
     this.errorCount.set(0);
     this.parseProgress.set(0);
+    this.currentFile.set(null);
+    this.importSuccess.set(false);
   }
 }

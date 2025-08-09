@@ -1,0 +1,98 @@
+<!-- accounts-list.component.html -->
+<div class="accounts-container">
+  <div class="accounts-header">
+    <h1>Manage Accounts</h1>
+    <p class="subtitle">View and manage your bank accounts</p>
+  </div>
+
+  <!-- Account Picker for creating new accounts -->
+  <div class="create-section">
+    <app-account-picker></app-account-picker>
+  </div>
+
+  <!-- Accounts List -->
+  <div class="accounts-list" *ngIf="accountService.hasAccounts()">
+    <h2>Your Accounts</h2>
+
+    <div class="account-cards">
+      <div class="account-card"
+           *ngFor="let account of accountService.accounts()"
+           [class.inactive]="!account.isActive">
+
+        <div class="account-header">
+          <div class="account-info">
+            <h3>{{ account.name }}</h3>
+            <div class="account-meta">
+              <span class="bank-name">{{ account.bankName }}</span>
+              <span class="separator">•</span>
+              <span class="account-type">{{ formatAccountType(account.accountType) }}</span>
+              <span *ngIf="account.accountNumber" class="separator">•</span>
+              <span *ngIf="account.accountNumber" class="account-number">****{{ account.accountNumber }}</span>
+            </div>
+          </div>
+
+          <div class="account-status">
+            <span class="status-badge" [class.active]="account.isActive">
+              {{ account.isActive ? 'Active' : 'Inactive' }}
+            </span>
+          </div>
+        </div>
+
+        <div class="account-stats" *ngIf="accountStats[account.id!] as stats">
+          <div class="stat">
+            <span class="stat-label">Imports</span>
+            <span class="stat-value">{{ stats.totalImports }}</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Transactions</span>
+            <span class="stat-value">{{ stats.totalTransactions }}</span>
+          </div>
+          <div class="stat" *ngIf="stats.lastImportDate">
+            <span class="stat-label">Last Import</span>
+            <span class="stat-value">{{ formatDate(stats.lastImportDate) }}</span>
+          </div>
+        </div>
+
+        <div class="account-actions">
+          <button class="btn-icon"
+                  (click)="toggleStatus(account.id!)"
+                  [title]="account.isActive ? 'Deactivate' : 'Activate'">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <path *ngIf="account.isActive" fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+              <path *ngIf="!account.isActive" fill="currentColor" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+            </svg>
+          </button>
+
+          <button class="btn-icon danger"
+                  (click)="confirmDelete(account)"
+                  title="Delete Account">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <path fill="currentColor" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div class="modal-overlay" *ngIf="deleteConfirm()" (click)="cancelDelete()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <h3>Delete Account?</h3>
+      <p>
+        Are you sure you want to delete <strong>{{ deleteConfirm()?.name }}</strong>?
+        This will also delete all associated imports and transactions.
+      </p>
+      <p class="warning">This action cannot be undone.</p>
+
+      <div class="modal-actions">
+        <button class="btn btn-secondary" (click)="cancelDelete()">
+          Cancel
+        </button>
+        <button class="btn btn-danger" (click)="deleteAccount()">
+          Delete Account
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

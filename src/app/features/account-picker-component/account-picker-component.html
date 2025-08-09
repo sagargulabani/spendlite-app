@@ -1,0 +1,133 @@
+ <div class="account-picker">
+      <!-- No accounts state -->
+      <div class="no-accounts" *ngIf="!accountService.hasAccounts() && !showCreateForm()">
+        <svg class="empty-icon" viewBox="0 0 24 24" width="48" height="48">
+          <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+        </svg>
+        <h3>No accounts yet</h3>
+        <p>Create your first account to start tracking expenses</p>
+        <button class="btn btn-primary" (click)="showCreateForm.set(true)">
+          <svg viewBox="0 0 24 24" width="20" height="20">
+            <path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+          </svg>
+          Create Account
+        </button>
+      </div>
+
+      <!-- Account selector -->
+      <div class="account-selector" *ngIf="accountService.hasAccounts() && !showCreateForm()">
+        <label class="select-label">Select Account</label>
+        <div class="select-wrapper">
+          <select
+            class="account-select"
+            [value]="accountService.selectedAccountId() || ''"
+            (change)="onAccountChange($event)"
+            [class.placeholder]="!accountService.selectedAccountId()">
+            <option value="" disabled>Choose an account...</option>
+            <option
+              *ngFor="let account of accountService.activeAccounts()"
+              [value]="account.id">
+              {{ account.name }} ({{ account.bankName }})
+            </option>
+          </select>
+          <svg class="select-arrow" viewBox="0 0 24 24" width="20" height="20">
+            <path fill="currentColor" d="M7 10l5 5 5-5z"/>
+          </svg>
+        </div>
+
+        <button
+          class="btn-text"
+          (click)="showCreateForm.set(true)">
+          + Add New Account
+        </button>
+      </div>
+
+      <!-- Create form -->
+      <div class="create-form" *ngIf="showCreateForm()">
+        <h3>Create New Account</h3>
+
+        <div class="form-group">
+          <label>Account Name *</label>
+          <input
+            type="text"
+            class="form-input"
+            [(ngModel)]="newAccount.name"
+            placeholder="e.g., Personal Savings"
+            [class.error]="errors().name">
+          <span class="error-text" *ngIf="errors().name">{{ errors().name }}</span>
+        </div>
+
+        <div class="form-group">
+          <label>Bank Name *</label>
+          <select
+            class="form-input"
+            [(ngModel)]="newAccount.bankName"
+            [class.error]="errors().bankName">
+            <option value="">Select bank...</option>
+            <option value="HDFC">HDFC Bank</option>
+            <option value="ICICI">ICICI Bank</option>
+            <option value="SBI">State Bank of India</option>
+            <option value="Axis">Axis Bank</option>
+            <option value="Kotak">Kotak Mahindra</option>
+            <option value="Other">Other</option>
+          </select>
+          <span class="error-text" *ngIf="errors().bankName">{{ errors().bankName }}</span>
+        </div>
+
+        <div class="form-group">
+          <label>Account Type *</label>
+          <div class="radio-group">
+            <label class="radio-label">
+              <input
+                type="radio"
+                name="accountType"
+                value="savings"
+                [(ngModel)]="newAccount.accountType">
+              <span>Savings</span>
+            </label>
+            <label class="radio-label">
+              <input
+                type="radio"
+                name="accountType"
+                value="current"
+                [(ngModel)]="newAccount.accountType">
+              <span>Current</span>
+            </label>
+            <label class="radio-label">
+              <input
+                type="radio"
+                name="accountType"
+                value="credit"
+                [(ngModel)]="newAccount.accountType">
+              <span>Credit Card</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Last 4 Digits (Optional)</label>
+          <input
+            type="text"
+            class="form-input"
+            [(ngModel)]="newAccount.accountNumber"
+            placeholder="XXXX"
+            maxlength="4"
+            pattern="[0-9]*">
+          <span class="hint">For identification only</span>
+        </div>
+
+        <div class="form-actions">
+          <button
+            class="btn btn-secondary"
+            (click)="cancelCreate()">
+            Cancel
+          </button>
+          <button
+            class="btn btn-primary"
+            (click)="createAccount()"
+            [disabled]="isCreating()">
+            {{ isCreating() ? 'Creating...' : 'Create Account' }}
+          </button>
+        </div>
+      </div>
+    </div>

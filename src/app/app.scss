@@ -1,0 +1,96 @@
+// app.scss
+.app-layout {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f8fffe 0%, #e6f9f1 100%);
+}
+
+.top-bar {
+  background: white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+  padding: 0 2rem;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #00b17c;
+
+    svg {
+      flex-shrink: 0;
+    }
+  }
+
+  .nav-menu {
+    display: flex;
+    gap: 0.5rem;
+
+    .nav-link {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+      color: #666;
+      text-decoration: none;
+      transition: all 0.2s;
+      position: relative;
+
+      &:hover:not(.disabled) {
+        background: #f0f0f0;
+        color: #333;
+      }
+
+      &.active {
+        background: rgba(0, 177, 124, 0.1);
+        color: #00b17c;
+      }
+
+      &.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .badge {
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        background: #ff6b6b;
+        color: white;
+        font-size: 0.625rem;
+        padding: 2px 6px;
+        border-radius: 10px;
+        font-weight: 600;
+      }
+    }
+  }
+}
+
+.main-content {
+  padding: 2rem 0;
+  min-height: calc(100vh - 64px);
+}
+
+@media (max-width: 768px) {
+  .top-bar {
+    padding: 0 1rem;
+
+    .logo span {
+      display: none;
+    }
+
+    .nav-menu {
+      .nav-link span:not(.badge) {
+        display: none;
+      }
+    }
+  }
+}

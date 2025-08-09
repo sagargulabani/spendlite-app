@@ -1,0 +1,272 @@
+// accounts-list.component.scss
+.accounts-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+.accounts-header {
+  text-align: center;
+  margin-bottom: 2rem;
+
+  h1 {
+    font-size: 2rem;
+    color: #121212;
+    margin-bottom: 0.5rem;
+  }
+
+  .subtitle {
+    color: #666;
+    font-size: 1.1rem;
+  }
+}
+
+.create-section {
+  margin-bottom: 3rem;
+}
+
+.accounts-list {
+  h2 {
+    font-size: 1.5rem;
+    color: #333;
+    margin-bottom: 1.5rem;
+  }
+}
+
+.account-cards {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.account-card {
+  background: white;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  transition: all 0.2s;
+
+  &:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  }
+
+  &.inactive {
+    opacity: 0.7;
+
+    .account-info h3 {
+      color: #999;
+    }
+  }
+}
+
+.account-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+
+  .account-info {
+    h3 {
+      font-size: 1.25rem;
+      color: #333;
+      margin-bottom: 0.5rem;
+    }
+
+    .account-meta {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.875rem;
+      color: #666;
+
+      .separator {
+        color: #ccc;
+      }
+
+      .bank-name {
+        font-weight: 500;
+      }
+
+      .account-type {
+        text-transform: capitalize;
+      }
+
+      .account-number {
+        font-family: monospace;
+      }
+    }
+  }
+
+  .account-status {
+    .status-badge {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      border-radius: 1rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      background: #fee;
+      color: #c33;
+
+      &.active {
+        background: #d4edda;
+        color: #155724;
+      }
+    }
+  }
+}
+
+.account-stats {
+  display: flex;
+  gap: 2rem;
+  padding: 1rem 0;
+  border-top: 1px solid #eee;
+  border-bottom: 1px solid #eee;
+  margin: 1rem 0;
+
+  .stat {
+    display: flex;
+    flex-direction: column;
+
+    .stat-label {
+      font-size: 0.75rem;
+      color: #999;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 0.25rem;
+    }
+
+    .stat-value {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: #333;
+    }
+  }
+}
+
+.account-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+
+  .btn-icon {
+    background: none;
+    border: 1px solid #ddd;
+    border-radius: 0.375rem;
+    padding: 0.5rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: #666;
+
+    &:hover {
+      background: #f8f8f8;
+      border-color: #bbb;
+    }
+
+    &.danger {
+      &:hover {
+        background: #fee;
+        border-color: #c33;
+        color: #c33;
+      }
+    }
+  }
+}
+
+// Modal styles
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: white;
+  border-radius: 0.75rem;
+  padding: 2rem;
+  max-width: 450px;
+  width: 90%;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+
+  h3 {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    color: #333;
+  }
+
+  p {
+    color: #666;
+    line-height: 1.6;
+    margin-bottom: 1rem;
+
+    strong {
+      color: #333;
+      font-weight: 600;
+    }
+
+    &.warning {
+      color: #c33;
+      font-size: 0.875rem;
+      font-style: italic;
+    }
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #eee;
+  }
+}
+
+// Button styles
+.btn {
+  padding: 0.625rem 1.25rem;
+  border: none;
+  border-radius: 0.375rem;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &.btn-secondary {
+    background: #f0f0f0;
+    color: #333;
+
+    &:hover {
+      background: #e0e0e0;
+    }
+  }
+
+  &.btn-danger {
+    background: #dc3545;
+    color: white;
+
+    &:hover {
+      background: #c82333;
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .accounts-container {
+    padding: 0 1rem;
+  }
+
+  .account-stats {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .modal {
+    margin: 1rem;
+  }
+}

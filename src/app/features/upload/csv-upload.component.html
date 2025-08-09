@@ -1,9 +1,15 @@
+<!-- csv-upload.component.html -->
 <div class="upload-container">
   <div class="upload-card">
     <!-- Header -->
     <div class="upload-header">
       <h1>Upload Your Bank Statement</h1>
-      <p class="subtitle">Drag and drop your HDFC CSV file to get started</p>
+      <p class="subtitle">Import transactions from your HDFC CSV file</p>
+    </div>
+
+    <!-- Account Picker -->
+    <div class="account-section">
+      <app-account-picker></app-account-picker>
     </div>
 
     <!-- Error Banner -->
@@ -15,10 +21,22 @@
       <button class="error-close" (click)="error.set(null)">&times;</button>
     </div>
 
-    <!-- Drop Zone -->
+    <!-- Success Banner -->
+    <div class="success-banner" *ngIf="importSuccess() && !isParsing()">
+      <svg class="success-icon" viewBox="0 0 24 24">
+        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+      </svg>
+      <span>
+        Successfully imported {{ totalRows() }} transactions to
+        <strong>{{ accountService.selectedAccount()?.name }}</strong>
+      </span>
+    </div>
+
+    <!-- Drop Zone - Only show if account is selected -->
     <div class="drop-zone"
          [class.dragging]="isDragging()"
          [class.has-data]="rows().length > 0"
+         [class.disabled]="!accountService.selectedAccountId()"
          (dragover)="onDragOver($event)"
          (dragleave)="onDragLeave($event)"
          (drop)="onDrop($event)"
@@ -28,18 +46,25 @@
         <path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/>
       </svg>
 
-      <h3>Drop your CSV file here</h3>
-      <p>or</p>
+      <div *ngIf="accountService.selectedAccountId()">
+        <h3>Drop your CSV file here</h3>
+        <p>or</p>
 
-      <label class="btn file-input-label">
-        Browse Files
-        <input type="file"
-               accept=".csv,.txt"
-               (change)="onFileSelect($event)"
-               class="file-input">
-      </label>
+        <label class="btn file-input-label">
+          Browse Files
+          <input type="file"
+                 accept=".csv,.txt"
+                 (change)="onFileSelect($event)"
+                 class="file-input">
+        </label>
 
-      <p class="file-hint">Supported: HDFC CSV/TXT statements only</p>
+        <p class="file-hint">Supported: HDFC CSV/TXT statements only</p>
+      </div>
+
+      <div *ngIf="!accountService.selectedAccountId()" class="disabled-message">
+        <h3>Select an account first</h3>
+        <p>Please choose or create an account above to start importing transactions</p>
+      </div>
     </div>
 
     <!-- Progress Bar -->
@@ -52,6 +77,18 @@
 
     <!-- Results Section -->
     <div class="results" *ngIf="rows().length > 0 && !isParsing()">
+      <!-- Import Info -->
+      <div class="import-info">
+        <div class="info-item">
+          <span class="info-label">File:</span>
+          <span class="info-value">{{ currentFile()?.name }}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Account:</span>
+          <span class="info-value">{{ accountService.selectedAccount()?.name }} ({{ accountService.selectedAccount()?.bankName }})</span>
+        </div>
+      </div>
+
       <!-- Summary Stats -->
       <div class="stats-grid">
         <div class="stat-card">
@@ -104,7 +141,7 @@
           Upload Another File
         </button>
         <button class="btn btn-primary" disabled>
-          Continue to Analysis
+          View Full Analysis
           <span class="coming-soon">Coming Soon</span>
         </button>
       </div>
