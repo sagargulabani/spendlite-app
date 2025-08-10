@@ -15,28 +15,17 @@
         <app-account-picker></app-account-picker>
       </div>
 
-      <!-- Bank Selection -->
-      @if (accountService.selectedAccountId()) {
-        <div class="bank-section">
-          <label class="bank-label">Select Your Bank</label>
-          <div class="bank-selector">
-            <select
-              class="bank-select"
-              [(ngModel)]="selectedBank">
-              <option value="AUTO">🔍 Auto-Detect</option>
-              @for (bank of supportedBanks(); track bank.id) {
-                <option [value]="bank.id">
-                  {{ bank.name }} ({{ bank.supportedFormats.join(', ') }})
-                </option>
-              }
-            </select>
+      <!-- Selected Account Info -->
+      @if (accountService.selectedAccount(); as account) {
+        <div class="selected-account-info">
+          <div class="info-badge">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            <span>Uploading to: <strong>{{ account.name }}</strong> ({{ account.bankName }})</span>
           </div>
-          <p class="bank-hint">
-            @if (selectedBank() === 'AUTO') {
-              We'll automatically detect your bank from the file
-            } @else {
-              Accepted formats: {{ getBankFormats(selectedBank()) }}
-            }
+          <p class="info-text">
+            Please upload a {{ account.bankName }} bank statement in {{ expectedFormats() }} format
           </p>
         </div>
       }
@@ -66,7 +55,7 @@
 
         @if (accountService.selectedAccountId()) {
           <div>
-            <h3>Drop your statement file here</h3>
+            <h3>Drop your {{ accountService.selectedAccount()?.bankName }} statement here</h3>
             <p>or</p>
 
             <label class="btn file-input-label">
@@ -78,11 +67,7 @@
             </label>
 
             <p class="file-hint">
-              @if (selectedBank() === 'AUTO') {
-                Supported: CSV, TXT, Excel files from HDFC, SBI, and more
-              } @else {
-                Supported: {{ getBankFormats(selectedBank()) }} files from {{ getBankDisplayName(selectedBank()) }}
-              }
+              Accepted formats: {{ expectedFormats() }}
             </p>
           </div>
         } @else {
@@ -101,13 +86,13 @@
               📖 Reading
             </div>
             <div class="stage" [class.active]="parseProgress()!.stage === 'detecting'">
-              🔍 Detecting
+              🔍 Validating
             </div>
             <div class="stage" [class.active]="parseProgress()!.stage === 'parsing'">
               ⚙️ Parsing
             </div>
             <div class="stage" [class.active]="parseProgress()!.stage === 'validating'">
-              ✓ Validating
+              ✓ Finalizing
             </div>
           </div>
 
@@ -122,14 +107,12 @@
             </div>
           }
 
-          @if (detectedBank()) {
-            <div class="detected-bank">
-              <svg viewBox="0 0 24 24" width="20" height="20">
-                <path fill="currentColor" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-              </svg>
-              Detected: {{ getBankDisplayName(detectedBank()!) }}
-            </div>
-          }
+          <div class="processing-bank">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <path fill="currentColor" d="M11.5 1L2 6v2h19V6M16 10v7h3v-7M2 22h19v-3H2m8-9v7h3v-7m-9 0v7h3v-7"/>
+            </svg>
+            Processing {{ accountService.selectedAccount()?.bankName }} statement
+          </div>
         </div>
       }
     </div>

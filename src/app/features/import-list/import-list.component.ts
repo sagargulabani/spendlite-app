@@ -1,5 +1,5 @@
 // imports-list.component.ts
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ImportService } from '../../core/services/import.service';
@@ -33,9 +33,34 @@ export class ImportsListComponent implements OnInit {
   deleteConfirmId = signal<number | null>(null);
   isDeleting = signal(false);
 
-  // Filters
-  filterAccountId = signal<number | null>(null);
+  // Filters - using string for select compatibility
+  filterAccountId = signal<string>('');
   searchQuery = signal('');
+
+  // Computed filtered imports
+  filteredImports = computed(() => {
+    let filtered = this.imports();
+
+    // Filter by account
+    const accountFilterValue = this.filterAccountId();
+    if (accountFilterValue && accountFilterValue !== '') {
+      const accountId = parseInt(accountFilterValue, 10);
+      filtered = filtered.filter(imp => imp.accountId === accountId);
+    }
+
+    // Filter by search query
+    const query = this.searchQuery().toLowerCase();
+    if (query) {
+      filtered = filtered.filter(imp =>
+        (imp.displayName?.toLowerCase().includes(query)) ||
+        imp.fileName.toLowerCase().includes(query) ||
+        imp.accountName?.toLowerCase().includes(query) ||
+        (imp.bankName?.toLowerCase().includes(query))
+      );
+    }
+
+    return filtered;
+  });
 
   constructor(
     private importService: ImportService,
@@ -63,34 +88,17 @@ export class ImportsListComponent implements OnInit {
         });
       }
 
+      // Sort by import date descending (newest first)
+      enrichedImports.sort((a, b) =>
+        new Date(b.importedAt).getTime() - new Date(a.importedAt).getTime()
+      );
+
       this.imports.set(enrichedImports);
     } catch (error) {
       console.error('Error loading imports:', error);
     } finally {
       this.isLoading.set(false);
     }
-  }
-
-  // Filtering
-  get filteredImports(): ImportWithAccount[] {
-    let filtered = this.imports();
-
-    // Filter by account
-    if (this.filterAccountId()) {
-      filtered = filtered.filter(imp => imp.accountId === this.filterAccountId());
-    }
-
-    // Filter by search query
-    const query = this.searchQuery().toLowerCase();
-    if (query) {
-      filtered = filtered.filter(imp =>
-        (imp.displayName?.toLowerCase().includes(query)) ||
-        imp.fileName.toLowerCase().includes(query) ||
-        imp.accountName?.toLowerCase().includes(query)
-      );
-    }
-
-    return filtered;
   }
 
   // Edit display name
@@ -172,6 +180,12 @@ export class ImportsListComponent implements OnInit {
 
   cancelDelete() {
     this.deleteConfirmId.set(null);
+  }
+
+  // Clear filters
+  clearFilters() {
+    this.filterAccountId.set('');
+    this.searchQuery.set('');
   }
 
   // Formatting helpers

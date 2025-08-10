@@ -1,3 +1,4 @@
+// csv-upload.component.ts
 import { Component, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -7,12 +8,6 @@ import { ParserFactoryService } from '../../core/services/parser-factory.service
 import { ParseProgress, UnifiedTransaction } from '../../core/parsers/bank-parser.abstract';
 import { AccountPickerComponent } from '../account-picker-component/account-picker-component';
 import { ImportReviewComponent, ImportReviewData } from '../import-review/import-review.component';
-
-interface BankInfo {
-  id: string;
-  name: string;
-  supportedFormats: string[];
-}
 
 @Component({
   selector: 'app-csv-upload',
@@ -28,11 +23,6 @@ export class CsvUploadComponent implements OnInit {
   parseProgress = signal<ParseProgress | null>(null);
   error = signal<string | null>(null);
   currentFile = signal<File | null>(null);
-
-  // Bank selection
-  selectedBank = signal<string>('AUTO');
-  supportedBanks = signal<BankInfo[]>([]);
-  detectedBank = signal<string | null>(null);
 
   // Workflow states
   currentStep = signal<'upload' | 'review'>('upload');
@@ -51,13 +41,26 @@ export class CsvUploadComponent implements OnInit {
   creditCount = computed(() => this.rows().filter(r => r.amount > 0).length);
   previewRows = computed(() => this.rows().slice(0, 10));
 
-  // Computed file accept string
+  // Computed file accept string based on selected account's bank
   acceptedFileTypes = computed(() => {
-    const bank = this.selectedBank();
-    if (bank === 'AUTO') {
-      return this.parserFactory.getAcceptedFileTypes();
+    const selectedAccount = this.accountService.selectedAccount();
+    if (!selectedAccount) {
+      return '*'; // Accept all if no account selected
     }
-    return this.parserFactory.getAcceptedFileTypes(bank);
+
+    // Get accepted file types for the account's bank
+    const bankId = this.mapBankNameToId(selectedAccount.bankName);
+    return this.parserFactory.getAcceptedFileTypes(bankId);
+  });
+
+  // Get expected formats for display
+  expectedFormats = computed(() => {
+    const selectedAccount = this.accountService.selectedAccount();
+    if (!selectedAccount) return '';
+
+    const bankId = this.mapBankNameToId(selectedAccount.bankName);
+    const parser = this.parserFactory.getParserForBank(bankId);
+    return parser ? parser.supportedFormats.join(', ') : 'supported formats';
   });
 
   constructor(
@@ -67,8 +70,25 @@ export class CsvUploadComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    // Load supported banks
-    this.supportedBanks.set(this.parserFactory.getSupportedBanks());
+    // Nothing to load anymore since we removed bank selection
+  }
+
+  // Map the bank name from account to parser bank ID
+  private mapBankNameToId(bankName: string): string {
+    const mapping: Record<string, string> = {
+      'HDFC': 'HDFC',
+      'HDFC Bank': 'HDFC',
+      'SBI': 'SBI',
+      'State Bank of India': 'SBI',
+      'ICICI': 'ICICI',
+      'ICICI Bank': 'ICICI',
+      'Axis': 'AXIS',
+      'Axis Bank': 'AXIS',
+      'Kotak': 'KOTAK',
+      'Kotak Mahindra': 'KOTAK'
+    };
+
+    return mapping[bankName] || bankName.toUpperCase();
   }
 
   onDragOver(event: DragEvent): void {
@@ -103,7 +123,8 @@ export class CsvUploadComponent implements OnInit {
 
   private async handleFile(file: File): Promise<void> {
     // Check if account is selected
-    if (!this.accountService.selectedAccountId()) {
+    const selectedAccount = this.accountService.selectedAccount();
+    if (!selectedAccount) {
       this.error.set('Please select an account before uploading a file.');
       return;
     }
@@ -116,34 +137,36 @@ export class CsvUploadComponent implements OnInit {
     this.currentFile.set(file);
     this.reviewData.set(null);
     this.currentStep.set('upload');
-    this.detectedBank.set(null);
     this.parseProgress.set(null);
 
     this.isParsing.set(true);
 
     try {
-      let parseResult;
-      let bankId: string;
+      // Get the bank ID from the selected account
+      const bankId = this.mapBankNameToId(selectedAccount.bankName);
+
+      // Check if we have a parser for this bank
+      const parser = this.parserFactory.getParserForBank(bankId);
+      if (!parser) {
+        throw new Error(
+          `No parser available for ${selectedAccount.bankName}. ` +
+          `Please contact support to add support for this bank.`
+        );
+      }
+
+      console.log(`Using ${bankId} parser for account: ${selectedAccount.name}`);
 
       // Progress callback
       const onProgress = (progress: ParseProgress) => {
         this.parseProgress.set(progress);
       };
 
-      if (this.selectedBank() === 'AUTO') {
-        // Auto-detect bank and parse
-        const result = await this.parserFactory.parseWithAutoDetect(file, onProgress);
-        parseResult = result.result;
-        bankId = result.bankId;
-        this.detectedBank.set(bankId);
-      } else {
-        // Parse with selected bank
-        bankId = this.selectedBank();
-        parseResult = await this.parserFactory.parseWithBank(file, bankId, onProgress);
-      }
+      // Parse with the specific bank parser
+      const parseResult = await this.parserFactory.parseWithBank(file, bankId, onProgress);
 
       console.log('Parse complete:', {
         bank: bankId,
+        account: selectedAccount.name,
         transactions: parseResult.transactions.length,
         errors: parseResult.errors,
         skipped: parseResult.skippedRows
@@ -154,12 +177,6 @@ export class CsvUploadComponent implements OnInit {
       this.skippedRows.set(parseResult.skippedRows);
 
       // Prepare review data
-      const selectedAccount = this.accountService.selectedAccount();
-      if (!selectedAccount) {
-        throw new Error('No account selected');
-      }
-
-      // Convert UnifiedTransaction to the format expected by ImportReviewData
       const reviewTransactions = parseResult.transactions.map(txn => ({
         ...txn,
         source: txn.source || `${bankId}-IMPORT`
@@ -167,7 +184,7 @@ export class CsvUploadComponent implements OnInit {
 
       this.reviewData.set({
         transactions: reviewTransactions,
-        accountId: this.accountService.selectedAccountId()!,
+        accountId: selectedAccount.id!,
         accountName: selectedAccount.name,
         fileName: file.name,
         fileSize: file.size,
@@ -180,7 +197,17 @@ export class CsvUploadComponent implements OnInit {
 
     } catch (error: any) {
       console.error('Parse error:', error);
-      this.error.set(error.message || 'An unexpected error occurred while parsing the file.');
+
+      // Provide more specific error messages
+      let errorMessage = error.message || 'An unexpected error occurred while parsing the file.';
+
+      // Check if it's a validation error
+      if (errorMessage.includes('Invalid') || errorMessage.includes('not appear to be')) {
+        errorMessage = `This file doesn't appear to be a valid ${selectedAccount.bankName} bank statement. ` +
+                      `Please ensure you're uploading a ${selectedAccount.bankName} statement for this account.`;
+      }
+
+      this.error.set(errorMessage);
       this.currentStep.set('upload');
     } finally {
       this.isParsing.set(false);
@@ -205,17 +232,6 @@ export class CsvUploadComponent implements OnInit {
     }).format(Math.abs(amount));
   }
 
-  getBankDisplayName(bankId: string): string {
-    if (bankId === 'AUTO') return 'Auto-Detect';
-    const bank = this.supportedBanks().find(b => b.id === bankId);
-    return bank?.name || bankId;
-  }
-
-  getBankFormats(bankId: string): string {
-    const bank = this.supportedBanks().find(b => b.id === bankId);
-    return bank?.supportedFormats.join(', ') || '';
-  }
-
   reset(): void {
     this.error.set(null);
     this.rows.set([]);
@@ -225,6 +241,5 @@ export class CsvUploadComponent implements OnInit {
     this.currentFile.set(null);
     this.reviewData.set(null);
     this.currentStep.set('upload');
-    this.detectedBank.set(null);
   }
 }

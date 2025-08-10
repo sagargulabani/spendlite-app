@@ -25,6 +25,7 @@
 .filters-section {
   display: flex;
   gap: 1rem;
+  align-items: flex-end;
   margin-bottom: 2rem;
   padding: 1.5rem;
   background: white;
@@ -58,6 +59,42 @@
       }
     }
   }
+
+  .btn-clear-filters {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1rem;
+    background: #f8f8f8;
+    border: 1px solid #d0d0d0;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #666;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+
+    svg {
+      width: 16px;
+      height: 16px;
+      color: #999;
+    }
+
+    &:hover {
+      background: #fff;
+      border-color: #999;
+      color: #333;
+
+      svg {
+        color: #666;
+      }
+    }
+
+    &:active {
+      transform: translateY(1px);
+    }
+  }
 }
 
 // Loading & Empty States
@@ -81,6 +118,26 @@
 
   p {
     color: #666;
+    margin-bottom: 1rem;
+  }
+
+  .btn {
+    padding: 0.625rem 1.25rem;
+    border: none;
+    border-radius: 0.375rem;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+
+    &.btn-secondary {
+      background: #f0f0f0;
+      color: #333;
+
+      &:hover {
+        background: #e0e0e0;
+      }
+    }
   }
 
   .spinner {
@@ -437,6 +494,11 @@
 
   .filters-section {
     flex-direction: column;
+    align-items: stretch;
+
+    .btn-clear-filters {
+      align-self: flex-start;
+    }
   }
 
   .import-header {

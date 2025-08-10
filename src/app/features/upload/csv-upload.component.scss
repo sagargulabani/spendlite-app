@@ -44,50 +44,35 @@ $body: #121212;
   margin-bottom: 1rem;
 }
 
-// Bank Selection
-.bank-section {
+// Selected Account Info
+.selected-account-info {
   padding: 0 2rem;
   margin-bottom: 1.5rem;
 
-  .bank-label {
-    display: block;
+  .info-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: #e7f5ff;
+    border-radius: 0.5rem;
+    color: #1c7ed6;
     margin-bottom: 0.5rem;
-    font-weight: 500;
-    color: #333;
-    font-size: 0.875rem;
-  }
 
-  .bank-selector {
-    .bank-select {
-      width: 100%;
-      padding: 0.75rem 1rem;
-      border: 2px solid #e0e0e0;
-      border-radius: 0.5rem;
-      font-size: 1rem;
-      background: white;
-      cursor: pointer;
-      transition: all 0.2s;
+    svg {
+      color: #1c7ed6;
+    }
 
-      &:hover {
-        border-color: $primary;
-      }
-
-      &:focus {
-        outline: none;
-        border-color: $primary;
-        box-shadow: 0 0 0 3px rgba(0, 177, 124, 0.1);
-      }
-
-      option {
-        padding: 0.5rem;
-      }
+    strong {
+      font-weight: 600;
+      color: #0c5da5;
     }
   }
 
-  .bank-hint {
-    margin-top: 0.5rem;
+  .info-text {
     font-size: 0.875rem;
     color: #666;
+    padding-left: 2rem;
   }
 }
 
@@ -247,6 +232,7 @@ $body: #121212;
     gap: 2rem;
     font-size: 0.875rem;
     color: #666;
+    margin-bottom: 1rem;
 
     span {
       display: flex;
@@ -260,20 +246,21 @@ $body: #121212;
     }
   }
 
-  .detected-bank {
+  .processing-bank {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
     margin-top: 1rem;
     padding: 0.75rem;
-    background: #e7f5ff;
+    background: white;
     border-radius: 0.5rem;
-    color: #1c7ed6;
+    color: #333;
     font-weight: 500;
+    border: 1px solid #e0e0e0;
 
     svg {
-      color: #1c7ed6;
+      color: $primary;
     }
   }
 }
@@ -324,8 +311,8 @@ $body: #121212;
     padding: 2rem 1rem;
   }
 
-  .bank-section,
-  .account-section {
+  .account-section,
+  .selected-account-info {
     padding: 0 1.5rem;
   }
 

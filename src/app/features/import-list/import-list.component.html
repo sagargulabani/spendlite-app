@@ -22,7 +22,7 @@
       <select
         class="filter-select"
         [(ngModel)]="filterAccountId">
-        <option [value]="null">All Accounts</option>
+        <option value="">All Accounts</option>
         @for (account of accountService.accounts(); track account.id) {
           <option [value]="account.id">
             {{ account.name }}
@@ -30,6 +30,15 @@
         }
       </select>
     </div>
+
+    @if (filterAccountId() || searchQuery()) {
+      <button class="btn-clear-filters" (click)="clearFilters()">
+        <svg viewBox="0 0 24 24" width="16" height="16">
+          <path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+        </svg>
+        Clear Filters
+      </button>
+    }
   </div>
 
   <!-- Loading State -->
@@ -41,7 +50,7 @@
   }
 
   <!-- No imports -->
-  @if (!isLoading() && filteredImports.length === 0) {
+  @if (!isLoading() && filteredImports().length === 0) {
     <div class="empty-state">
       <svg viewBox="0 0 24 24" width="48" height="48">
         <path fill="currentColor" d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
@@ -49,6 +58,7 @@
       <h3>No imports found</h3>
       @if (searchQuery() || filterAccountId()) {
         <p>Try adjusting your filters</p>
+        <button class="btn btn-secondary" (click)="clearFilters()">Clear Filters</button>
       } @else {
         <p>Import your first bank statement to get started</p>
       }
@@ -56,9 +66,9 @@
   }
 
   <!-- Imports List -->
-  @if (!isLoading() && filteredImports.length > 0) {
+  @if (!isLoading() && filteredImports().length > 0) {
     <div class="imports-list">
-      @for (import of filteredImports; track import.id) {
+      @for (import of filteredImports(); track import.id) {
         <div class="import-card">
 
           <!-- Import Header -->
