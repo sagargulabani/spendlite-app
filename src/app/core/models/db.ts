@@ -12,23 +12,27 @@ export interface Account {
   updatedAt: Date;
 }
 
-// Import Record Model
+// Import Record Model - Updated with bank info
 export interface ImportRecord {
   id?: number;
   accountId: number;
+  displayName?: string; // User-provided name for the import
   fileName: string;
   fileSize: number;
+  fileFormat?: 'csv' | 'txt' | 'excel'; // File format
+  bankName?: string; // Which bank this import is from
   importedAt: Date;
   totalRows: number;
   successCount: number;
   errorCount: number;
   debitCount: number;
   creditCount: number;
+  duplicateCount?: number; // New field for tracking duplicates
   status: 'pending' | 'processing' | 'completed' | 'failed';
   errorMessage?: string;
 }
 
-// Transaction Model (for future use)
+// Transaction Model - Updated with bank info and fingerprint
 export interface Transaction {
   id?: number;
   accountId: number;
@@ -36,11 +40,34 @@ export interface Transaction {
   date: string;
   narration: string;
   amount: number;
-  balance?: number;
+
+  // Bank-specific fields
+  bankName?: string;
+  referenceNo?: string;
+
+  // Original fields for fingerprint generation
+  valueDate?: string;
+  withdrawalAmt?: number;
+  depositAmt?: number;
+  closingBalance?: number;
+
+  // Deduplication fields
+  fingerprint: string; // Unique hash for duplicate detection
+  isDuplicate?: boolean;
+  originalTransactionId?: number; // Reference to original if duplicate
+
   category?: string;
   tags?: string[];
   isReconciled: boolean;
   createdAt: Date;
+}
+
+// Duplicate detection result
+export interface DuplicateCheckResult {
+  transaction: any; // Using any to handle both UnifiedTransaction and ExtendedParsedTransaction
+  isExactDuplicate: boolean;
+  existingTransaction?: Transaction;
+  confidence: 'exact' | 'high' | 'medium' | 'low';
 }
 
 // Database Class
@@ -52,11 +79,11 @@ export class SpendLiteDB extends Dexie {
   constructor() {
     super('SpendLiteDB');
 
-    // Define schema
-    this.version(1).stores({
+    // Define schema - Version 2 with fingerprint index
+    this.version(2).stores({
       accounts: '++id, name, bankName, isActive',
       imports: '++id, accountId, importedAt, status',
-      transactions: '++id, accountId, importId, date, amount, [accountId+date]'
+      transactions: '++id, accountId, importId, date, amount, fingerprint, [accountId+fingerprint], [accountId+date]'
     });
   }
 }

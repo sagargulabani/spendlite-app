@@ -9,6 +9,14 @@ export class CsvParseError extends Error {
   }
 }
 
+// Extended parsed transaction with all HDFC fields
+export interface ExtendedParsedTransaction extends ParsedTransaction {
+  valueDate?: string;
+  withdrawalAmt?: number;
+  depositAmt?: number;
+  closingBalance?: number;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -22,9 +30,9 @@ export class CsvParserService {
     'Closing Balance'
   ];
 
-  async parseFile(file: File): Promise<{ rows: ParsedTransaction[]; errors: number }> {
+  async parseFile(file: File): Promise<{ rows: ExtendedParsedTransaction[]; errors: number }> {
     return new Promise((resolve, reject) => {
-      const rows: ParsedTransaction[] = [];
+      const rows: ExtendedParsedTransaction[] = [];
       let errors = 0;
       let headerValidated = false;
 
@@ -50,7 +58,6 @@ export class CsvParserService {
           }
         },
         complete: () => {
-          // console.log(rows)
           if (rows.length === 0) {
             reject(new CsvParseError('No valid transactions found in the CSV file.'));
           } else {
@@ -87,7 +94,7 @@ export class CsvParserService {
     return matchCount >= 3;
   }
 
-  private parseHdfcRow(row: Record<string, any>): ParsedTransaction | null {
+  private parseHdfcRow(row: Record<string, any>): ExtendedParsedTransaction | null {
     // 1. Normalise the headers coming from Papa Parse
     const norm: Record<string, any> = {};
     for (const [k, v] of Object.entries(row)) {
@@ -99,11 +106,13 @@ export class CsvParserService {
       norm[cleanKey] = v;
     }
 
-    // 2. Grab the fields you care about
+    // 2. Grab all the fields
     const rawDate = norm['date'];
     const rawNarration = norm['narration'];
+    const rawValueDate = norm['value date'] ?? norm['valuedate'];
     const rawDebit = norm['withdrawal amt'] ?? norm['debit amount'];
     const rawCredit = norm['deposit amt'] ?? norm['credit amount'];
+    const rawClosingBalance = norm['closing balance'] ?? norm['balance'];
 
     if (!rawDate || !rawNarration) return null;
 
@@ -118,14 +127,21 @@ export class CsvParserService {
     else if (creditAmount > 0) amount = creditAmount;
     else return null;
 
+    // Parse value date if available
+    const valueDate = rawValueDate ? this.toIso(rawValueDate) : undefined;
+
     return {
       date: isoDate,
       narration: rawNarration.toString().trim().replace(/\s+/g, ' '),
       amount,
-      source: 'HDFC-CSV'
+      source: 'HDFC-CSV',
+      // Additional fields for deduplication
+      valueDate: valueDate || undefined,
+      withdrawalAmt: debitAmount || undefined,
+      depositAmt: creditAmount || undefined,
+      closingBalance: this.num(rawClosingBalance) || undefined
     };
   }
-
 
   private toIso(dateStr: string): string | null {
     if (!dateStr) return null;

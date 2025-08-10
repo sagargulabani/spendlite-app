@@ -1,150 +1,148 @@
 <!-- csv-upload.component.html -->
 <div class="upload-container">
-  <div class="upload-card">
-    <!-- Header -->
-    <div class="upload-header">
-      <h1>Upload Your Bank Statement</h1>
-      <p class="subtitle">Import transactions from your HDFC CSV file</p>
-    </div>
 
-    <!-- Account Picker -->
-    <div class="account-section">
-      <app-account-picker></app-account-picker>
-    </div>
-
-    <!-- Error Banner -->
-    <div class="error-banner" *ngIf="error()">
-      <svg class="error-icon" viewBox="0 0 24 24">
-        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
-      </svg>
-      <span>{{ error() }}</span>
-      <button class="error-close" (click)="error.set(null)">&times;</button>
-    </div>
-
-    <!-- Success Banner -->
-    <div class="success-banner" *ngIf="importSuccess() && !isParsing()">
-      <svg class="success-icon" viewBox="0 0 24 24">
-        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-      </svg>
-      <span>
-        Successfully imported {{ totalRows() }} transactions to
-        <strong>{{ accountService.selectedAccount()?.name }}</strong>
-      </span>
-    </div>
-
-    <!-- Drop Zone - Only show if account is selected -->
-    <div class="drop-zone"
-         [class.dragging]="isDragging()"
-         [class.has-data]="rows().length > 0"
-         [class.disabled]="!accountService.selectedAccountId()"
-         (dragover)="onDragOver($event)"
-         (dragleave)="onDragLeave($event)"
-         (drop)="onDrop($event)"
-         *ngIf="!rows().length">
-
-      <svg class="upload-icon" viewBox="0 0 24 24">
-        <path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/>
-      </svg>
-
-      <div *ngIf="accountService.selectedAccountId()">
-        <h3>Drop your CSV file here</h3>
-        <p>or</p>
-
-        <label class="btn file-input-label">
-          Browse Files
-          <input type="file"
-                 accept=".csv,.txt"
-                 (change)="onFileSelect($event)"
-                 class="file-input">
-        </label>
-
-        <p class="file-hint">Supported: HDFC CSV/TXT statements only</p>
+  <!-- Upload Step -->
+  @if (currentStep() === 'upload') {
+    <div class="upload-card">
+      <!-- Header -->
+      <div class="upload-header">
+        <h1>Upload Your Bank Statement</h1>
+        <p class="subtitle">Import transactions from your bank statement file</p>
       </div>
 
-      <div *ngIf="!accountService.selectedAccountId()" class="disabled-message">
-        <h3>Select an account first</h3>
-        <p>Please choose or create an account above to start importing transactions</p>
+      <!-- Account Picker -->
+      <div class="account-section">
+        <app-account-picker></app-account-picker>
       </div>
+
+      <!-- Bank Selection -->
+      @if (accountService.selectedAccountId()) {
+        <div class="bank-section">
+          <label class="bank-label">Select Your Bank</label>
+          <div class="bank-selector">
+            <select
+              class="bank-select"
+              [(ngModel)]="selectedBank">
+              <option value="AUTO">🔍 Auto-Detect</option>
+              @for (bank of supportedBanks(); track bank.id) {
+                <option [value]="bank.id">
+                  {{ bank.name }} ({{ bank.supportedFormats.join(', ') }})
+                </option>
+              }
+            </select>
+          </div>
+          <p class="bank-hint">
+            @if (selectedBank() === 'AUTO') {
+              We'll automatically detect your bank from the file
+            } @else {
+              Accepted formats: {{ getBankFormats(selectedBank()) }}
+            }
+          </p>
+        </div>
+      }
+
+      <!-- Error Banner -->
+      @if (error()) {
+        <div class="error-banner">
+          <svg class="error-icon" viewBox="0 0 24 24">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+          </svg>
+          <span>{{ error() }}</span>
+          <button class="error-close" (click)="error.set(null)">&times;</button>
+        </div>
+      }
+
+      <!-- Drop Zone -->
+      <div class="drop-zone"
+           [class.dragging]="isDragging()"
+           [class.disabled]="!accountService.selectedAccountId()"
+           (dragover)="onDragOver($event)"
+           (dragleave)="onDragLeave($event)"
+           (drop)="onDrop($event)">
+
+        <svg class="upload-icon" viewBox="0 0 24 24">
+          <path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/>
+        </svg>
+
+        @if (accountService.selectedAccountId()) {
+          <div>
+            <h3>Drop your statement file here</h3>
+            <p>or</p>
+
+            <label class="btn file-input-label">
+              Browse Files
+              <input type="file"
+                     [accept]="acceptedFileTypes()"
+                     (change)="onFileSelect($event)"
+                     class="file-input">
+            </label>
+
+            <p class="file-hint">
+              @if (selectedBank() === 'AUTO') {
+                Supported: CSV, TXT, Excel files from HDFC, SBI, and more
+              } @else {
+                Supported: {{ getBankFormats(selectedBank()) }} files from {{ getBankDisplayName(selectedBank()) }}
+              }
+            </p>
+          </div>
+        } @else {
+          <div class="disabled-message">
+            <h3>Select an account first</h3>
+            <p>Please choose or create an account above to start importing transactions</p>
+          </div>
+        }
+      </div>
+
+      <!-- Progress Bar -->
+      @if (isParsing() && parseProgress()) {
+        <div class="progress-container">
+          <div class="progress-stages">
+            <div class="stage" [class.active]="parseProgress()!.stage === 'reading'">
+              📖 Reading
+            </div>
+            <div class="stage" [class.active]="parseProgress()!.stage === 'detecting'">
+              🔍 Detecting
+            </div>
+            <div class="stage" [class.active]="parseProgress()!.stage === 'parsing'">
+              ⚙️ Parsing
+            </div>
+            <div class="stage" [class.active]="parseProgress()!.stage === 'validating'">
+              ✓ Validating
+            </div>
+          </div>
+
+          <div class="progress-message">
+            {{ parseProgress()!.message }}
+          </div>
+
+          @if (parseProgress()!.stage === 'parsing') {
+            <div class="progress-stats">
+              <span>Found: {{ parseProgress()!.transactionsFound }} transactions</span>
+              <span>Skipped: {{ parseProgress()!.skippedRows }} rows</span>
+            </div>
+          }
+
+          @if (detectedBank()) {
+            <div class="detected-bank">
+              <svg viewBox="0 0 24 24" width="20" height="20">
+                <path fill="currentColor" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+              Detected: {{ getBankDisplayName(detectedBank()!) }}
+            </div>
+          }
+        </div>
+      }
     </div>
+  }
 
-    <!-- Progress Bar -->
-    <div class="progress-container" *ngIf="isParsing()">
-      <div class="progress-bar">
-        <div class="progress-fill" [style.width.%]="parseProgress()"></div>
-      </div>
-      <p class="progress-text">Parsing your transactions...</p>
+  <!-- Review Step -->
+  @if (currentStep() === 'review' && reviewData()) {
+    <div class="review-card">
+      <app-import-review
+        [reviewData]="reviewData()!"
+        (onConfirm)="onImportConfirmed()"
+        (onCancel)="onImportCancelled()">
+      </app-import-review>
     </div>
-
-    <!-- Results Section -->
-    <div class="results" *ngIf="rows().length > 0 && !isParsing()">
-      <!-- Import Info -->
-      <div class="import-info">
-        <div class="info-item">
-          <span class="info-label">File:</span>
-          <span class="info-value">{{ currentFile()?.name }}</span>
-        </div>
-        <div class="info-item">
-          <span class="info-label">Account:</span>
-          <span class="info-value">{{ accountService.selectedAccount()?.name }} ({{ accountService.selectedAccount()?.bankName }})</span>
-        </div>
-      </div>
-
-      <!-- Summary Stats -->
-      <div class="stats-grid">
-        <div class="stat-card">
-          <h4>Total Transactions</h4>
-          <p class="stat-value">{{ totalRows() }}</p>
-        </div>
-        <div class="stat-card debit">
-          <h4>Debits</h4>
-          <p class="stat-value">{{ debitCount() }}</p>
-        </div>
-        <div class="stat-card credit">
-          <h4>Credits</h4>
-          <p class="stat-value">{{ creditCount() }}</p>
-        </div>
-        <div class="stat-card" *ngIf="errorCount() > 0">
-          <h4>Skipped Rows</h4>
-          <p class="stat-value error">{{ errorCount() }}</p>
-        </div>
-      </div>
-
-      <!-- Preview Table -->
-      <div class="preview-section">
-        <h3>Preview (First 10 transactions)</h3>
-        <div class="table-wrapper">
-          <table class="preview-table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Description</th>
-                <th class="amount-header">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let txn of previewRows()">
-                <td class="date-cell">{{ txn.date }}</td>
-                <td class="narration-cell">{{ txn.narration }}</td>
-                <td class="amount-cell" [class.debit]="txn.amount < 0" [class.credit]="txn.amount > 0">
-                  <span class="amount-sign">{{ txn.amount < 0 ? '-' : '+' }}</span>
-                  {{ formatAmount(txn.amount) }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Actions -->
-      <div class="actions">
-        <button class="btn btn-secondary" (click)="reset()">
-          Upload Another File
-        </button>
-        <button class="btn btn-primary" disabled>
-          View Full Analysis
-          <span class="coming-soon">Coming Soon</span>
-        </button>
-      </div>
-    </div>
-  </div>
+  }
 </div>

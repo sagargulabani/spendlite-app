@@ -1,0 +1,259 @@
+<!-- import-review.component.html -->
+<div class="import-review">
+  <div class="review-header">
+    <h2>Review Import</h2>
+    <p class="subtitle">Review your transactions before importing</p>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button
+      class="tab"
+      [class.active]="currentTab() === 'summary'"
+      (click)="currentTab.set('summary')">
+      Summary
+    </button>
+    <button
+      class="tab"
+      [class.active]="currentTab() === 'duplicates'"
+      (click)="currentTab.set('duplicates')"
+      [class.has-badge]="exactDuplicates() > 0 || possibleDuplicates() > 0">
+      Duplicates
+      <span class="badge" *ngIf="exactDuplicates() > 0 || possibleDuplicates() > 0">
+        {{ exactDuplicates() + possibleDuplicates() }}
+      </span>
+    </button>
+    <button
+      class="tab"
+      [class.active]="currentTab() === 'preview'"
+      (click)="currentTab.set('preview')">
+      Preview
+    </button>
+  </div>
+
+  <!-- Tab Content -->
+  <div class="tab-content">
+
+    <!-- Summary Tab -->
+    <div *ngIf="currentTab() === 'summary'" class="summary-tab">
+
+      <!-- Import Naming -->
+      <div class="naming-section">
+        <div class="form-group">
+          <label>Import Name (Optional)</label>
+          <input
+            type="text"
+            class="form-input"
+            [(ngModel)]="importName"
+            placeholder="e.g., FY 2024-25, March Expenses"
+            maxlength="100">
+          <small>Default: "{{ reviewData.fileName }}"</small>
+        </div>
+      </div>
+
+      <!-- Import Stats -->
+      <div class="stats-cards">
+        <div class="stat-card">
+          <div class="stat-label">Total Transactions</div>
+          <div class="stat-value">{{ reviewData.transactions.length }}</div>
+        </div>
+        <div class="stat-card credit">
+          <div class="stat-label">Credits</div>
+          <div class="stat-value">{{ creditCount() }}</div>
+        </div>
+        <div class="stat-card debit">
+          <div class="stat-label">Debits</div>
+          <div class="stat-value">{{ debitCount() }}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Date Range</div>
+          <div class="stat-value small">{{ dateRange() }}</div>
+        </div>
+      </div>
+
+      <!-- Duplicate Summary -->
+      <div class="duplicate-summary" *ngIf="!isCheckingDuplicates()">
+        <h3>Duplicate Check Results</h3>
+        <div class="duplicate-stats">
+          <div class="duplicate-stat new">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <path fill="currentColor" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+            </svg>
+            <span class="count">{{ newTransactions() }}</span>
+            <span class="label">New transactions</span>
+          </div>
+          <div class="duplicate-stat duplicate" *ngIf="exactDuplicates() > 0">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+            </svg>
+            <span class="count">{{ exactDuplicates() }}</span>
+            <span class="label">Exact duplicates (will skip)</span>
+          </div>
+          <div class="duplicate-stat review" *ngIf="possibleDuplicates() > 0">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+            </svg>
+            <span class="count">{{ possibleDuplicates() }}</span>
+            <span class="label">Need review</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Loading duplicates -->
+      <div class="loading" *ngIf="isCheckingDuplicates()">
+        <div class="spinner"></div>
+        <p>Checking for duplicates...</p>
+      </div>
+    </div>
+
+    <!-- Duplicates Tab -->
+    <div *ngIf="currentTab() === 'duplicates'" class="duplicates-tab">
+
+      <div class="no-duplicates" *ngIf="exactDuplicates() === 0 && possibleDuplicates() === 0">
+        <svg viewBox="0 0 24 24" width="48" height="48">
+          <path fill="currentColor" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+        </svg>
+        <h3>No duplicates found!</h3>
+        <p>All transactions are new and will be imported.</p>
+      </div>
+
+      <!-- Exact Duplicates -->
+      <div class="duplicate-section" *ngIf="exactDuplicates() > 0">
+        <h3>Exact Duplicates ({{ exactDuplicates() }})</h3>
+        <p class="section-desc">These transactions already exist and will be automatically skipped.</p>
+
+        <div class="duplicate-list">
+          <div class="duplicate-item"
+               *ngFor="let result of duplicateResults(); let i = index"
+               [hidden]="!result.isExactDuplicate">
+            <div class="txn-info">
+              <span class="date">{{ result.transaction['date'] }}</span>
+              <span class="narration">{{ result.transaction['narration'] || result.transaction['description'] }}</span>
+              <span class="amount" [class.credit]="(result.transaction['amount'] || 0) > 0">
+                {{ formatAmount(result.transaction['amount'] || 0) }}
+              </span>
+            </div>
+            <div class="status exact">
+              <svg viewBox="0 0 24 24" width="16" height="16">
+                <path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+              </svg>
+              Will Skip
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Possible Duplicates -->
+      <div class="duplicate-section" *ngIf="possibleDuplicates() > 0">
+        <h3>Possible Duplicates ({{ possibleDuplicates() }})</h3>
+        <p class="section-desc">Review these transactions and decide whether to import them.</p>
+
+        <div class="duplicate-comparison">
+          <div class="comparison-item"
+               *ngFor="let result of duplicateResults(); let i = index"
+               [hidden]="result.isExactDuplicate || result.confidence !== 'medium'">
+
+            <div class="comparison-header">
+              <h4>Transaction #{{ i + 1 }}</h4>
+              <div class="decision-toggle">
+                <label class="toggle">
+                  <input
+                    type="checkbox"
+                    [checked]="duplicateDecisions.get(i)"
+                    (change)="toggleDuplicateDecision(i)">
+                  <span class="toggle-slider"></span>
+                  <span class="toggle-label">
+                    {{ duplicateDecisions.get(i) ? 'Import as New' : 'Skip' }}
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <div class="comparison-content">
+              <div class="txn-column new">
+                <h5>New Transaction</h5>
+                <div class="txn-details">
+                  <div><strong>Date:</strong> {{ result.transaction['date'] }}</div>
+                  <div><strong>Description:</strong> {{ result.transaction['narration'] || result.transaction['description'] }}</div>
+                  <div><strong>Amount:</strong> {{ formatAmount(result.transaction['amount'] || 0) }}</div>
+                </div>
+              </div>
+
+              <div class="vs">VS</div>
+
+              <div class="txn-column existing">
+                <h5>Existing Transaction</h5>
+                <div class="txn-details" *ngIf="result.existingTransaction">
+                  <div><strong>Date:</strong> {{ result.existingTransaction.date }}</div>
+                  <div><strong>Description:</strong> {{ result.existingTransaction.narration }}</div>
+                  <div><strong>Amount:</strong> {{ formatAmount(result.existingTransaction.amount) }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Preview Tab -->
+    <div *ngIf="currentTab() === 'preview'" class="preview-tab">
+      <h3>Transactions to Import (First 20)</h3>
+
+      <div class="preview-table-wrapper">
+        <table class="preview-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Description</th>
+              <th class="amount-header">Amount</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let txn of reviewData.transactions.slice(0, 20); let i = index"
+                [class.will-skip]="duplicateResults()[i] && duplicateResults()[i].isExactDuplicate">
+              <td class="date-cell">{{ txn.date }}</td>
+              <td class="narration-cell">{{ txn.narration || txn.description }}</td>
+              <td class="amount-cell" [class.debit]="txn.amount < 0" [class.credit]="txn.amount > 0">
+                {{ formatAmount(txn.amount) }}
+              </td>
+              <td class="status-cell">
+                <span class="status-badge new" *ngIf="duplicateResults()[i] && !duplicateResults()[i].isExactDuplicate && duplicateResults()[i].confidence === 'low'">
+                  New
+                </span>
+                <span class="status-badge duplicate" *ngIf="duplicateResults()[i] && duplicateResults()[i].isExactDuplicate">
+                  Duplicate
+                </span>
+                <span class="status-badge review" *ngIf="duplicateResults()[i] && !duplicateResults()[i].isExactDuplicate && duplicateResults()[i].confidence === 'medium'">
+                  Review
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="review-actions">
+    <div class="import-summary">
+      <span class="summary-text">
+        Will import <strong>{{ newTransactions() }}</strong> new transactions to
+        <strong>{{ reviewData.accountName }}</strong>
+      </span>
+    </div>
+
+    <div class="action-buttons">
+      <button class="btn btn-secondary" (click)="onCancel.emit()" [disabled]="isConfirming()">
+        Cancel
+      </button>
+      <button
+        class="btn btn-primary"
+        (click)="confirmImport()"
+        [disabled]="isConfirming() || isCheckingDuplicates()">
+        {{ isConfirming() ? 'Importing...' : 'Confirm Import' }}
+      </button>
+    </div>
+  </div>
+</div>

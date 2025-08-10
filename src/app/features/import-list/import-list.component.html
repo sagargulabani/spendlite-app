@@ -1,0 +1,209 @@
+<!-- imports-list.component.html -->
+<div class="imports-container">
+  <!-- Header -->
+  <div class="imports-header">
+    <h1>Import History</h1>
+    <p class="subtitle">Manage your imported bank statements</p>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters-section">
+    <div class="filter-group">
+      <label>Search</label>
+      <input
+        type="text"
+        class="filter-input"
+        [(ngModel)]="searchQuery"
+        placeholder="Search by name or file...">
+    </div>
+
+    <div class="filter-group">
+      <label>Account</label>
+      <select
+        class="filter-select"
+        [(ngModel)]="filterAccountId">
+        <option [value]="null">All Accounts</option>
+        @for (account of accountService.accounts(); track account.id) {
+          <option [value]="account.id">
+            {{ account.name }}
+          </option>
+        }
+      </select>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  @if (isLoading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading imports...</p>
+    </div>
+  }
+
+  <!-- No imports -->
+  @if (!isLoading() && filteredImports.length === 0) {
+    <div class="empty-state">
+      <svg viewBox="0 0 24 24" width="48" height="48">
+        <path fill="currentColor" d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+      </svg>
+      <h3>No imports found</h3>
+      @if (searchQuery() || filterAccountId()) {
+        <p>Try adjusting your filters</p>
+      } @else {
+        <p>Import your first bank statement to get started</p>
+      }
+    </div>
+  }
+
+  <!-- Imports List -->
+  @if (!isLoading() && filteredImports.length > 0) {
+    <div class="imports-list">
+      @for (import of filteredImports; track import.id) {
+        <div class="import-card">
+
+          <!-- Import Header -->
+          <div class="import-header">
+            <div class="import-title">
+              <!-- Display Name (Editable) -->
+              @if (editingNameId() !== import.id) {
+                <div class="name-section">
+                  <h3>{{ import.displayName || import.fileName }}</h3>
+                  <button
+                    class="btn-icon"
+                    (click)="startEditName(import)"
+                    title="Edit name">
+                    <svg viewBox="0 0 24 24" width="16" height="16">
+                      <path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                    </svg>
+                  </button>
+                </div>
+              } @else {
+                <!-- Edit Name Form -->
+                <div class="edit-name-form">
+                  <input
+                    type="text"
+                    class="edit-input"
+                    [(ngModel)]="editingName"
+                    (keyup.enter)="saveName()"
+                    (keyup.escape)="cancelEditName()">
+                  <button class="btn-save" (click)="saveName()">Save</button>
+                  <button class="btn-cancel" (click)="cancelEditName()">Cancel</button>
+                </div>
+              }
+
+              <p class="file-name">
+                {{ import.fileName }} • {{ formatFileSize(import.fileSize) }}
+                @if (import.bankName) {
+                  <span class="bank-badge">{{ import.bankName }}</span>
+                }
+              </p>
+            </div>
+
+            <div class="import-date">
+              {{ formatDate(import.importedAt) }}
+            </div>
+          </div>
+
+          <!-- Import Details -->
+          <div class="import-details">
+            <!-- Account Info (Editable) -->
+            <div class="detail-item">
+              <span class="detail-label">Account:</span>
+              @if (editingAccountId() !== import.id) {
+                <div class="account-info">
+                  <span class="detail-value">{{ import.accountName }}</span>
+                  <button
+                    class="btn-icon"
+                    (click)="startEditAccount(import)"
+                    title="Change account">
+                    <svg viewBox="0 0 24 24" width="16" height="16">
+                      <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    </svg>
+                  </button>
+                </div>
+              } @else {
+                <!-- Edit Account Form -->
+                <div class="edit-account-form">
+                  <select
+                    class="edit-select"
+                    [(ngModel)]="selectedNewAccountId">
+                    @for (account of accountService.activeAccounts(); track account.id) {
+                      <option [value]="account.id">
+                        {{ account.name }}
+                      </option>
+                    }
+                  </select>
+                  <button class="btn-save" (click)="saveAccount()">Save</button>
+                  <button class="btn-cancel" (click)="cancelEditAccount()">Cancel</button>
+                </div>
+              }
+            </div>
+
+            <!-- Statistics -->
+            <div class="detail-item">
+              <span class="detail-label">Transactions:</span>
+              <span class="detail-value">{{ import.successCount }}</span>
+            </div>
+
+            <div class="detail-item">
+              <span class="detail-label">Credits:</span>
+              <span class="detail-value credit">{{ import.creditCount }}</span>
+            </div>
+
+            <div class="detail-item">
+              <span class="detail-label">Debits:</span>
+              <span class="detail-value debit">{{ import.debitCount }}</span>
+            </div>
+
+            @if (import.duplicateCount && import.duplicateCount > 0) {
+              <div class="detail-item">
+                <span class="detail-label">Skipped:</span>
+                <span class="detail-value duplicate">{{ import.duplicateCount }}</span>
+              </div>
+            }
+          </div>
+
+          <!-- Import Actions -->
+          <div class="import-actions">
+            <button
+              class="btn-action danger"
+              (click)="confirmDelete(import)"
+              title="Delete import">
+              <svg viewBox="0 0 24 24" width="20" height="20">
+                <path fill="currentColor" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+              </svg>
+              Delete
+            </button>
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- Delete Confirmation Modal -->
+  @if (deleteConfirmId()) {
+    <div class="modal-overlay" (click)="cancelDelete()">
+      <div class="modal" (click)="$event.stopPropagation()">
+        <h3>Delete Import?</h3>
+        <p>
+          Are you sure you want to delete
+          <strong>{{ getImportForDelete()?.displayName || getImportForDelete()?.fileName }}</strong>?
+        </p>
+        <p>
+          This will permanently delete
+          <strong>{{ getImportForDelete()?.successCount }} transactions</strong>.
+        </p>
+        <p class="warning">This action cannot be undone.</p>
+
+        <div class="modal-actions">
+          <button class="btn btn-secondary" (click)="cancelDelete()" [disabled]="isDeleting()">
+            Cancel
+          </button>
+          <button class="btn btn-danger" (click)="deleteImport()" [disabled]="isDeleting()">
+            {{ isDeleting() ? 'Deleting...' : 'Delete Import' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</div>
