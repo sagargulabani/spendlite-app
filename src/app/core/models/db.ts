@@ -1,4 +1,5 @@
 import Dexie, { Table } from 'dexie';
+import { SubCategory, CategoryRule } from './category.model';
 
 // Account Model
 export interface Account {
@@ -75,15 +76,19 @@ export class SpendLiteDB extends Dexie {
   accounts!: Table<Account>;
   imports!: Table<ImportRecord>;
   transactions!: Table<Transaction>;
+  subCategories!: Table<SubCategory>;
+  categoryRules!: Table<CategoryRule>;
 
   constructor() {
     super('SpendLiteDB');
 
     // Define schema - Version 2 with fingerprint index
-    this.version(2).stores({
+    this.version(3).stores({
       accounts: '++id, name, bankName, isActive',
       imports: '++id, accountId, importedAt, status',
-      transactions: '++id, accountId, importId, date, amount, fingerprint, [accountId+fingerprint], [accountId+date]'
+      transactions: '++id, accountId, importId, date, amount, fingerprint, [accountId+fingerprint], [accountId+date], category',
+      subCategories: '++id, rootId, label',
+      categoryRules: '++id, merchantKey, rootCategory, createdBy'
     });
   }
 }

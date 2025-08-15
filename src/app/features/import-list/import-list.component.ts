@@ -2,6 +2,7 @@
 import { Component, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { ImportService } from '../../core/services/import.service';
 import { AccountService } from '../../core/services/account.service';
 import { TransactionService } from '../../core/services/transaction.service';
@@ -65,7 +66,8 @@ export class ImportsListComponent implements OnInit {
   constructor(
     private importService: ImportService,
     public accountService: AccountService,
-    private transactionService: TransactionService
+    private transactionService: TransactionService,
+    private router: Router
   ) {}
 
   async ngOnInit() {
@@ -99,6 +101,11 @@ export class ImportsListComponent implements OnInit {
     } finally {
       this.isLoading.set(false);
     }
+  }
+
+  // Navigate to import detail page
+  navigateToDetail(importId: number) {
+    this.router.navigate(['/imports', importId]);
   }
 
   // Edit display name

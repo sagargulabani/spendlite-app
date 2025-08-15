@@ -338,6 +338,17 @@
       border-color: #bbb;
     }
 
+    &.primary {
+      background: #00b17c;
+      color: white;
+      border-color: #00b17c;
+
+      &:hover {
+        background: #00966a;
+        border-color: #00966a;
+      }
+    }
+
     &.danger:hover {
       background: #fee;
       border-color: #c33;
@@ -513,5 +524,14 @@
   .import-details {
     flex-direction: column;
     gap: 0.75rem;
+  }
+
+  .import-actions {
+    flex-direction: column;
+
+    .btn-action {
+      width: 100%;
+      justify-content: center;
+    }
   }
 }

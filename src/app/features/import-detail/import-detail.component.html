@@ -1,0 +1,319 @@
+<!-- import-detail.component.html -->
+<div class="import-detail-container">
+  @if (isLoading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading import details...</p>
+    </div>
+  } @else if (import()) {
+    <!-- Header -->
+    <div class="detail-header">
+      <button class="btn-back" (click)="navigateBack()">
+        <svg viewBox="0 0 24 24" width="20" height="20">
+          <path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+        </svg>
+        Back to Imports
+      </button>
+
+      <div class="import-info">
+        <h1>{{ import()!.displayName || import()!.fileName }}</h1>
+        <div class="import-meta">
+          <span>{{ account()?.name }}</span>
+          <span class="separator">•</span>
+          <span>{{ import()!.bankName }}</span>
+          <span class="separator">•</span>
+          <span>Imported {{ formatDate(import()!.importedAt.toString()) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats Overview -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Total Transactions</div>
+        <div class="stat-value">{{ transactions().length }}</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">Credits</div>
+        <div class="stat-value credit">{{ formatAmount(creditAmount()) }}</div>
+        <div class="stat-sub">{{ import()!.creditCount }} transactions</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">Debits</div>
+        <div class="stat-value debit">{{ formatAmount(debitAmount()) }}</div>
+        <div class="stat-sub">{{ import()!.debitCount }} transactions</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">Categorized</div>
+        <div class="stat-value">{{ categorizedPercent() }}%</div>
+        <div class="stat-sub">{{ categorizedCount() }} of {{ transactions().length }}</div>
+      </div>
+    </div>
+
+    <!-- Category Breakdown -->
+    @if (categoryBreakdown().length > 0) {
+      <div class="category-breakdown">
+        <h3>Category Distribution</h3>
+        <div class="category-chips">
+          @for (cat of categoryBreakdown(); track cat.label) {
+            <div class="category-chip" [style.border-color]="cat.color">
+              <span class="cat-icon" [style.color]="cat.color">{{ cat.icon }}</span>
+              <span class="cat-label">{{ cat.label }}</span>
+              <span class="cat-count">{{ cat.count }}</span>
+              <span class="cat-amount" [class.positive]="cat.amount > 0">
+                {{ formatAmount(cat.amount) }}
+              </span>
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- Actions Bar -->
+    <div class="actions-bar">
+      <div class="filters">
+        <input type="text"
+               class="search-input"
+               [(ngModel)]="searchQuery"
+               placeholder="Search transactions...">
+
+        <select class="filter-select" [(ngModel)]="filterCategory">
+          <option value="all">All Categories</option>
+          <option value="uncategorized">Uncategorized ({{ uncategorizedCount() }})</option>
+          <option disabled>────────────</option>
+          @for (cat of rootCategories; track cat.id) {
+            <option [value]="cat.id">{{ cat.icon }} {{ cat.label }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="action-buttons">
+        @if (uncategorizedCount() > 0) {
+          <button class="btn btn-primary"
+                  (click)="autoCategorize()"
+                  [disabled]="isCategorizing()">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            {{ isCategorizing() ? 'Categorizing...' : 'Auto-Categorize' }}
+          </button>
+        }
+
+        @if (categorizedCount() > 0) {
+          <button class="btn btn-danger"
+                  (click)="openClearWarningModal()"
+                  [disabled]="isClearing()">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <path fill="currentColor" d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/>
+            </svg>
+            {{ isClearing() ? 'Clearing...' : 'Clear Categories' }}
+          </button>
+        }
+
+        <button class="btn btn-outline" (click)="exportTransactions()">
+          <svg viewBox="0 0 24 24" width="20" height="20">
+            <path fill="currentColor" d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20M12,19L8,15H10.5V12H13.5V15H16L12,19Z"/>
+          </svg>
+          Export
+        </button>
+      </div>
+    </div>
+
+    <!-- Transactions Table -->
+    <div class="transactions-table">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Description</th>
+            <th class="amount-col">Amount</th>
+            <th>Category</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (txn of filteredTransactions(); track txn.id) {
+            <tr>
+              <td class="date-col">{{ formatDate(txn.date) }}</td>
+              <td class="narration-col">
+                <div class="narration">{{ txn.narration }}</div>
+                @if (txn.referenceNo) {
+                  <div class="ref-no">Ref: {{ txn.referenceNo }}</div>
+                }
+              </td>
+              <td class="amount-col" [class.credit]="txn.amount > 0" [class.debit]="txn.amount < 0">
+                {{ formatAmount(txn.amount) }}
+              </td>
+              <td class="category-col">
+                <select class="category-select"
+                        [ngModel]="txn.category"
+                        (ngModelChange)="quickCategorize(txn, $event)"
+                        [style.border-color]="txn.rootCategoryColor || '#e5e7eb'">
+                  <option [ngValue]="null">Uncategorized</option>
+                  @for (cat of rootCategories; track cat.id) {
+                    <option [ngValue]="cat.id">{{ cat.icon }} {{ cat.label }}</option>
+                  }
+                </select>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="4" class="empty-row">
+                No transactions found
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Categorization Review Modal -->
+    @if (showReviewModal()) {
+      <div class="modal-overlay" (click)="$event.stopPropagation()">
+        <div class="modal review-modal" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h2>Review Auto-Categorization</h2>
+            <div class="modal-subtitle">
+              {{ categorizedTransactions().length }} transactions categorized - Please review and adjust if needed
+            </div>
+          </div>
+
+          <div class="modal-body review-body">
+            <!-- Summary Stats -->
+            <div class="review-stats">
+              <div class="stat-badge">
+                <span class="stat-number">{{ categorizedTransactions().length }}</span>
+                <span class="stat-label">Total Categorized</span>
+              </div>
+              <div class="stat-badge">
+                <span class="stat-number">{{ categorizationSummaryKeys().length }}</span>
+                <span class="stat-label">Categories Used</span>
+              </div>
+            </div>
+
+            <!-- Grouped by Category -->
+            <div class="category-groups">
+              @for (category of categorizationSummaryKeys(); track category) {
+                @if (categorizationSummary()[category]) {
+                  <div class="category-group">
+                    <div class="group-header">
+                      <div class="category-info">
+                        <span class="cat-icon" [style.color]="getCategoryColor(category)">{{ getCategoryIcon(category) }}</span>
+                        <span class="cat-name">{{ getCategoryLabel(category) }}</span>
+                        <span class="cat-count">{{ categorizationSummary()[category].length }} transactions</span>
+                      </div>
+                    </div>
+
+                    <div class="transactions-list">
+                      @for (item of categorizationSummary()[category]; track item.transaction.id) {
+                        <div class="review-transaction">
+                          <div class="txn-info">
+                            <div class="txn-date">{{ formatDate(item.transaction.date) }}</div>
+                            <div class="txn-details">
+                              <div class="txn-narration">{{ item.transaction.narration }}</div>
+                              <div class="txn-merchant">Merchant: {{ item.merchantKey }}</div>
+                            </div>
+                            <div class="txn-amount" [class.credit]="item.transaction.amount > 0" [class.debit]="item.transaction.amount < 0">
+                              {{ formatAmount(item.transaction.amount) }}
+                            </div>
+                          </div>
+
+                          <div class="txn-category">
+                            <select class="category-select-review"
+                                    [ngModel]="item.newCategory"
+                                    (ngModelChange)="updateReviewCategory(item, $event)"
+                                    [style.border-color]="getCategoryColor(item.newCategory) || '#e5e7eb'">
+                              @for (cat of rootCategories; track cat.id) {
+                                <option [value]="cat.id">{{ cat.icon }} {{ cat.label }}</option>
+                              }
+                            </select>
+                          </div>
+                        </div>
+                      }
+                    </div>
+                  </div>
+                }
+              }
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button class="btn btn-secondary" (click)="cancelCategorizationReview()">
+              Cancel & Revert
+            </button>
+            <button class="btn btn-primary" (click)="applyCategorizationReview()">
+              <svg viewBox="0 0 24 24" width="20" height="20">
+                <path fill="currentColor" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+              Apply Categorization
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Clear Categories Warning Modal -->
+    @if (showClearWarningModal()) {
+      <div class="modal-overlay" (click)="closeClearWarningModal()">
+        <div class="modal warning-modal" (click)="$event.stopPropagation()">
+          <div class="modal-header warning">
+            <div class="warning-icon">
+              <svg viewBox="0 0 24 24" width="48" height="48">
+                <path fill="currentColor" d="M12,2L1,21H23M12,6L19.53,19H4.47M11,10V14H13V10M11,16V18H13V16"/>
+              </svg>
+            </div>
+            <h2>Clear All Categories?</h2>
+          </div>
+          <div class="modal-body">
+            <p class="warning-text">
+              This action will remove all category assignments from <strong>{{ categorizedCount() }} transactions</strong> in this import.
+            </p>
+            <p class="warning-subtext">
+              Note: This will only clear categories for transactions in this import. Your saved categorization rules will remain intact for future use.
+            </p>
+            <div class="warning-stats">
+              <div class="stat-item">
+                <span class="stat-label">Categories to clear:</span>
+                <span class="stat-value">{{ categoryBreakdown().length }}</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Transactions affected:</span>
+                <span class="stat-value">{{ categorizedCount() }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" (click)="closeClearWarningModal()">Cancel</button>
+            <button class="btn btn-danger" (click)="confirmClearCategories()">
+              <svg viewBox="0 0 24 24" width="20" height="20">
+                <path fill="currentColor" d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/>
+              </svg>
+              Yes, Clear All Categories
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Categorization Modal (placeholder) -->
+    @if (showCategorizationModal()) {
+      <div class="modal-overlay" (click)="closeCategorizationModal()">
+        <div class="modal" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h2>Bulk Categorization</h2>
+            <button class="btn-close" (click)="closeCategorizationModal()">×</button>
+          </div>
+          <div class="modal-body">
+            <p>Bulk categorization interface coming soon!</p>
+            <p>For now, use the dropdown in the table to categorize individual transactions.</p>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" (click)="closeCategorizationModal()">Close</button>
+          </div>
+        </div>
+      </div>
+    }
+  }
+</div>

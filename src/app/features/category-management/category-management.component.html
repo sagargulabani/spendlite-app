@@ -1,0 +1,139 @@
+<!-- category-management.component.html -->
+<div class="category-container">
+  <div class="category-header">
+    <h1>Category Management</h1>
+    <p class="subtitle">Manage subcategories for better transaction organization</p>
+  </div>
+
+  <div class="category-layout">
+    <!-- Root Categories Sidebar -->
+    <div class="root-categories">
+      <h3>Main Categories</h3>
+      <div class="root-list">
+        @for (root of rootCategories; track root.id) {
+          <div class="root-item"
+               [class.selected]="selectedRoot()?.id === root.id"
+               (click)="selectRoot(root)">
+            <span class="root-icon" [style.color]="root.color">{{ root.icon }}</span>
+            <div class="root-info">
+              <span class="root-label">{{ root.label }}</span>
+              <span class="sub-count">{{ subCategoryCount()[root.id] || 0 }} subcategories</span>
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- Subcategories Panel -->
+    <div class="subcategories-panel">
+      @if (selectedRoot()) {
+        <div class="panel-header">
+          <div class="selected-root">
+            <span class="icon" [style.color]="selectedRoot()!.color">
+              {{ selectedRoot()!.icon }}
+            </span>
+            <h2>{{ selectedRoot()!.label }}</h2>
+          </div>
+          <button class="btn btn-primary" (click)="startCreate()">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+            </svg>
+            Add Subcategory
+          </button>
+        </div>
+
+        <!-- Create/Edit Form -->
+        @if (isCreating() || isEditing()) {
+          <div class="subcategory-form">
+            <h4>{{ isEditing() ? 'Edit' : 'New' }} Subcategory</h4>
+
+            <div class="form-group">
+              <label>Name *</label>
+              <input type="text"
+                     class="form-input"
+                     [(ngModel)]="formLabel"
+                     placeholder="e.g., Electricity, Rent, Groceries"
+                     [disabled]="isSaving()">
+            </div>
+
+            <div class="form-group">
+              <label>Description (Optional)</label>
+              <textarea class="form-input"
+                       [(ngModel)]="formDescription"
+                       placeholder="Additional notes about this category"
+                       rows="2"
+                       [disabled]="isSaving()"></textarea>
+            </div>
+
+            <div class="form-actions">
+              <button class="btn btn-secondary"
+                      (click)="cancelForm()"
+                      [disabled]="isSaving()">
+                Cancel
+              </button>
+              <button class="btn btn-primary"
+                      (click)="saveSubCategory()"
+                      [disabled]="!formLabel().trim() || isSaving()">
+                {{ isSaving() ? 'Saving...' : 'Save' }}
+              </button>
+            </div>
+          </div>
+        }
+
+        <!-- Subcategories List -->
+        <div class="subcategories-list">
+          @if (isLoading()) {
+            <div class="loading">
+              <div class="spinner"></div>
+              <p>Loading subcategories...</p>
+            </div>
+          } @else if (filteredSubCategories().length === 0) {
+            <div class="empty-state">
+              <svg viewBox="0 0 24 24" width="48" height="48">
+                <path fill="currentColor" d="M3 10H14V12H3V10M3 6H14V8H3V6M3 14H10V16H3V14M16 13V21L21 16L16 13Z"/>
+              </svg>
+              <p>No subcategories yet</p>
+              <p class="hint">Create subcategories to organize {{ selectedRoot()!.label }} transactions better</p>
+            </div>
+          } @else {
+            @for (sub of filteredSubCategories(); track sub.id) {
+              <div class="subcategory-item">
+                <div class="sub-info">
+                  <h4>{{ sub.label }}</h4>
+                  @if (sub.description) {
+                    <p class="sub-description">{{ sub.description }}</p>
+                  }
+                </div>
+
+                <div class="sub-actions">
+                  <button class="btn-icon"
+                          (click)="startEdit(sub)"
+                          title="Edit">
+                    <svg viewBox="0 0 24 24" width="18" height="18">
+                      <path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                    </svg>
+                  </button>
+                  <button class="btn-icon danger"
+                          (click)="deleteSubCategory(sub)"
+                          title="Delete">
+                    <svg viewBox="0 0 24 24" width="18" height="18">
+                      <path fill="currentColor" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            }
+          }
+        </div>
+      } @else {
+        <div class="no-selection">
+          <svg viewBox="0 0 24 24" width="64" height="64">
+            <path fill="currentColor" d="M3 7V5H5V4C5 2.9 5.9 2 7 2H13V9L15.5 7.5L18 9V2H19C20.05 2 21 2.95 21 4V20C21 21.05 20.05 22 19 22H7C5.95 22 5 21.05 5 20V19H3V17H5V13H3V11H5V7H3M7 11H5V13H7V11M7 7V5H5V7H7M7 19V17H5V19H7Z"/>
+          </svg>
+          <h3>Select a Category</h3>
+          <p>Choose a main category from the left to manage its subcategories</p>
+        </div>
+      }
+    </div>
+  </div>
+</div>
