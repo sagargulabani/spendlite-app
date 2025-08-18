@@ -236,8 +236,15 @@ export class ImportDetailComponent implements OnInit {
         transactionStates.set(t.id!, t.category);
       });
 
-      // Perform auto-categorization
-      const result = await this.categorizationService.autoCategorizeTransactions(this.import()!.id!);
+      // Perform auto-categorization for each uncategorized transaction
+      let categorizedCount = 0;
+      for (const txn of uncategorizedBefore) {
+        const category = await this.categorizationService.detectCategory(txn);
+        if (category) {
+          await db.transactions.update(txn.id!, { category });
+          categorizedCount++;
+        }
+      }
 
       // Reload transactions to get new categories
       await this.loadImportDetails(this.import()!.id!);
@@ -248,7 +255,8 @@ export class ImportDetailComponent implements OnInit {
       for (const txn of this.transactions()) {
         // Check if this transaction was previously uncategorized and now has a category
         if (transactionStates.has(txn.id!) && !transactionStates.get(txn.id!) && txn.category) {
-          const merchantKey = this.categorizationService.extractMerchantKey(txn.narration);
+          // FIXED: Added bankName parameter
+          const merchantKey = this.categorizationService.extractMerchantKey(txn.narration, txn.bankName);
           const root = this.rootCategories.find(r => r.id === txn.category);
 
           categorizedList.push({
@@ -374,7 +382,8 @@ export class ImportDetailComponent implements OnInit {
     await this.updateTransactionCategory(txn.id!, category);
 
     // Save as rule for future using the service
-    const merchantKey = this.categorizationService.extractMerchantKey(txn.narration);
+    // FIXED: Added bankName parameter
+    const merchantKey = this.categorizationService.extractMerchantKey(txn.narration, txn.bankName);
     await this.categorizationService.createRule(merchantKey, category, 'user');
   }
 

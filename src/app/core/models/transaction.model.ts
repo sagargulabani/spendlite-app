@@ -1,3 +1,4 @@
+// src/app/core/models/transaction.model.ts
 export interface ParsedTransaction {
   date: string;        // ISO yyyy-MM-dd
   narration: string;   // raw narration string

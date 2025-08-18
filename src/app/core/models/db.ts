@@ -1,3 +1,4 @@
+// src/app/core/models/db.ts
 import Dexie, { Table } from 'dexie';
 import { SubCategory, CategoryRule } from './category.model';
 
