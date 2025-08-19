@@ -1,20 +1,20 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
 
-import { AccountPickerComponent } from './account-picker-component';
+import { AnalyticsComponent } from './analytics';
 
-describe('AccountPickerComponent', () => {
-  let component: AccountPickerComponent;
-  let fixture: ComponentFixture<AccountPickerComponent>;
+describe('AnalyticsComponent', () => {
+  let component: AnalyticsComponent;
+  let fixture: ComponentFixture<AnalyticsComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [AccountPickerComponent],
+      imports: [AnalyticsComponent],
       providers: [provideZonelessChangeDetection()]
     })
     .compileComponents();
 
-    fixture = TestBed.createComponent(AccountPickerComponent);
+    fixture = TestBed.createComponent(AnalyticsComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
   });

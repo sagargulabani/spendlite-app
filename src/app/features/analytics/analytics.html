@@ -1,0 +1,193 @@
+<div class="analytics-container">
+  <!-- Sticky Filters Section -->
+  <div class="filters-section">
+    <div class="filters-wrapper">
+      <div class="filter-group">
+        <label for="startDate">Start Date</label>
+        <input
+          type="date"
+          id="startDate"
+          class="filter-input"
+          [(ngModel)]="startDate"
+          [min]="minDate()"
+          [max]="maxDate()"
+          (change)="onDateChange()"
+        />
+      </div>
+
+      <div class="filter-group">
+        <label for="endDate">End Date</label>
+        <input
+          type="date"
+          id="endDate"
+          class="filter-input"
+          [(ngModel)]="endDate"
+          [min]="minDate()"
+          [max]="maxDate()"
+          (change)="onDateChange()"
+        />
+      </div>
+
+      <div class="filter-group">
+        <label for="accounts">Accounts</label>
+        <select
+          id="accounts"
+          class="filter-input"
+          multiple
+          (change)="onAccountSelectionChange($event)"
+        >
+          <option value="">All Accounts</option>
+          @for (account of accounts(); track account.id) {
+            <option [value]="account.id">{{ account.name }}</option>
+          }
+        </select>
+      </div>
+
+      <button class="btn-clear" (click)="clearFilters()">
+        Clear Filters
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  @if (isLoading()) {
+    <div class="loading-container">
+      <div class="spinner"></div>
+      <p>Loading analytics...</p>
+    </div>
+  }
+
+  <!-- Error State -->
+  @if (error()) {
+    <div class="error-message">
+      {{ error() }}
+    </div>
+  }
+
+  <!-- KPI Cards Section -->
+  @if (!isLoading() && !error()) {
+    <div class="kpi-section">
+      <div class="kpi-grid">
+        <!-- Income Card -->
+        <div class="kpi-card income-card clickable" (click)="showTransactionDetails('income')">
+          <div class="kpi-header">
+            <span class="kpi-icon">💰</span>
+            <span class="kpi-label">Total Income</span>
+          </div>
+          <div class="kpi-value">{{ formattedIncome() }}</div>
+          <div class="kpi-subtitle">
+            From income category transactions
+          </div>
+        </div>
+
+        <!-- Expenses Card -->
+        <div class="kpi-card expense-card clickable" (click)="showTransactionDetails('expenses')">
+          <div class="kpi-header">
+            <span class="kpi-icon">💸</span>
+            <span class="kpi-label">Total Expenses</span>
+          </div>
+          <div class="kpi-value">{{ formattedExpenses() }}</div>
+          <div class="kpi-subtitle">
+            All expense categories combined
+          </div>
+        </div>
+
+        <!-- Net Amount Card -->
+        <div class="kpi-card net-card clickable" (click)="showTransactionDetails('net')">
+          <div class="kpi-header">
+            <span class="kpi-icon">📊</span>
+            <span class="kpi-label">Net Amount</span>
+          </div>
+          <div class="kpi-value" [class.positive]="kpis().netAmount >= 0" [class.negative]="kpis().netAmount < 0">
+            {{ formattedNet() }}
+          </div>
+          <div class="kpi-subtitle">
+            Income minus expenses
+          </div>
+        </div>
+
+        <!-- Transactions Card -->
+        <div class="kpi-card stats-card">
+          <div class="kpi-header">
+            <span class="kpi-icon">📝</span>
+            <span class="kpi-label">Transactions</span>
+          </div>
+          <div class="kpi-value">{{ kpis().transactionCount }}</div>
+          <div class="kpi-subtitle">
+            {{ categorizedPercentage() }}% categorized
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Category Breakdown Section -->
+    @if (categoryBreakdown().length > 0) {
+      <div class="breakdown-section">
+        <h2 class="section-title">Category Breakdown</h2>
+        <div class="category-grid">
+          @for (category of categoryBreakdown(); track category.categoryId) {
+            <div class="category-card clickable" (click)="showCategoryDetails(category)">
+              <div class="category-header">
+                <span class="category-icon">{{ category.icon }}</span>
+                <span class="category-label">{{ category.label }}</span>
+              </div>
+              <div class="category-amount">
+                {{ formatCurrency(category.amount) }}
+              </div>
+              <div class="category-stats">
+                <span class="transaction-count">{{ category.count }} transactions</span>
+                <span class="percentage">{{ category.percentage.toFixed(1) }}%</span>
+              </div>
+              <div class="category-bar">
+                <div 
+                  class="category-bar-fill" 
+                  [style.width.%]="category.percentage"
+                  [style.background-color]="category.color"
+                ></div>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- Monthly Trend Section -->
+    @if (monthlyTrend().length > 0) {
+      <div class="trend-section">
+        <h2 class="section-title">Monthly Trend</h2>
+        <div class="trend-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Month</th>
+                <th class="text-right">Income</th>
+                <th class="text-right">Expenses</th>
+                <th class="text-right">Net</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (month of monthlyTrend(); track month.month) {
+                <tr>
+                  <td>{{ month.month }}</td>
+                  <td class="text-right income">{{ formatCurrency(month.income) }}</td>
+                  <td class="text-right expense">{{ formatCurrency(month.expenses) }}</td>
+                  <td class="text-right" [class.positive]="month.net >= 0" [class.negative]="month.net < 0">
+                    {{ formatCurrency(month.net) }}
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+  }
+</div>
+
+<!-- Transaction Details Modal -->
+@if (showTransactionModal() && transactionModalData()) {
+  <app-transaction-details-modal
+    [data]="transactionModalData()!"
+    (close)="closeTransactionModal()"
+  />
+}

@@ -147,15 +147,35 @@
                 {{ formatAmount(txn.amount) }}
               </td>
               <td class="category-col">
-                <select class="category-select"
-                        [ngModel]="txn.category"
-                        (ngModelChange)="quickCategorize(txn, $event)"
-                        [style.border-color]="txn.rootCategoryColor || '#e5e7eb'">
-                  <option [ngValue]="null">Uncategorized</option>
-                  @for (cat of rootCategories; track cat.id) {
-                    <option [ngValue]="cat.id">{{ cat.icon }} {{ cat.label }}</option>
+                <div class="category-controls">
+                  <select class="category-select"
+                          [ngModel]="txn.category"
+                          (ngModelChange)="quickCategorize(txn, $event)"
+                          [style.border-color]="txn.rootCategoryColor || '#e5e7eb'">
+                    <option [ngValue]="null">Uncategorized</option>
+                    @for (cat of rootCategories; track cat.id) {
+                      <option [ngValue]="cat.id">{{ cat.icon }} {{ cat.label }}</option>
+                    }
+                  </select>
+                  
+                  @if (txn.category === 'transfers') {
+                    <select class="account-select"
+                            [ngModel]="txn.linkedAccountId"
+                            (ngModelChange)="quickCategorize(txn, 'transfers', $event)"
+                            placeholder="Select account">
+                      <option [ngValue]="null">Select account...</option>
+                      @for (acc of allAccounts(); track acc.id) {
+                        <option [ngValue]="acc.id">{{ acc.name }}</option>
+                      }
+                    </select>
                   }
-                </select>
+                  
+                  @if (txn.linkedAccountId) {
+                    <span class="transfer-badge">
+                      → {{ getAccountName(txn.linkedAccountId) }}
+                    </span>
+                  }
+                </div>
               </td>
             </tr>
           } @empty {

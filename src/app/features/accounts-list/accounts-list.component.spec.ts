@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideZonelessChangeDetection } from '@angular/core';
 
 import { AccountsListComponent } from './accounts-list.component';
 
@@ -8,7 +9,8 @@ describe('AccountsListComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [AccountsListComponent]
+      imports: [AccountsListComponent],
+      providers: [provideZonelessChangeDetection()]
     })
     .compileComponents();
 

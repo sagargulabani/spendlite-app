@@ -1,0 +1,169 @@
+<div class="modal-overlay" (click)="closeModal()">
+  <div class="modal-container" [class.expanded]="isExpensesView()" (click)="$event.stopPropagation()">
+    <!-- Header -->
+    <div class="modal-header">
+      <div class="header-left">
+        @if (isExpensesView() && selectedCategory()) {
+          <button class="back-btn" (click)="backToChart()">
+            ← Back
+          </button>
+        }
+        <h2 class="modal-title">{{ currentTitle() }}</h2>
+      </div>
+      <button class="close-btn" (click)="closeModal()">✕</button>
+    </div>
+
+    <!-- Summary Bar -->
+    <div class="summary-bar">
+      <div class="summary-item">
+        <span class="summary-label">Total:</span>
+        <span class="summary-value" [class.positive]="totalAmount() >= 0" [class.negative]="totalAmount() < 0">
+          {{ formatAmount(totalAmount()) }}
+        </span>
+      </div>
+      <div class="summary-item">
+        <span class="summary-label">
+          @if (viewMode() === 'chart') {
+            Categories:
+          } @else {
+            Transactions:
+          }
+        </span>
+        <span class="summary-value">
+          @if (viewMode() === 'chart') {
+            {{ categoryBreakdown().length }}
+          } @else {
+            {{ transactionCount() }}
+          }
+        </span>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="modal-content">
+      @if (isLoading()) {
+        <div class="loading-state">
+          <div class="spinner"></div>
+          <p>Loading data...</p>
+        </div>
+      }
+
+      @if (!isLoading()) {
+        <!-- Chart View (for expenses) -->
+        @if (isExpensesView() && viewMode() === 'chart') {
+          <div class="chart-view">
+            @if (categoryBreakdown().length === 0) {
+              <div class="empty-state">
+                <p>No expense transactions found</p>
+              </div>
+            } @else {
+              <!-- Pie Chart -->
+              <div class="chart-container">
+                <canvas #chartCanvas></canvas>
+              </div>
+              
+              <!-- Category List -->
+              <div class="category-list">
+                <h3 class="list-title">Category Breakdown</h3>
+                <div class="category-items">
+                  @for (category of categoryBreakdown(); track category.categoryId) {
+                    <div class="category-item" (click)="drillDownToCategory(category.categoryId)">
+                      <div class="category-info">
+                        <span class="category-icon">{{ category.icon }}</span>
+                        <span class="category-name">{{ category.label }}</span>
+                        <span class="category-count">({{ category.count }} transactions)</span>
+                      </div>
+                      <div class="category-stats">
+                        <span class="category-amount">{{ formatAmount(category.amount) }}</span>
+                        <span class="category-percentage">{{ category.percentage.toFixed(1) }}%</span>
+                      </div>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        }
+
+        <!-- Transaction View (default or drill-down) -->
+        @if (viewMode() === 'transactions') {
+          <!-- Controls Bar -->
+          <div class="controls-bar">
+            <input
+              type="text"
+              class="search-input"
+              placeholder="Search transactions..."
+              [(ngModel)]="searchQuery"
+            />
+            
+            <div class="sort-controls">
+              <button 
+                class="sort-btn"
+                [class.active]="sortBy() === 'date'"
+                (click)="toggleSort('date')"
+              >
+                Date
+                @if (sortBy() === 'date') {
+                  <span class="sort-arrow">{{ sortOrder() === 'asc' ? '↑' : '↓' }}</span>
+                }
+              </button>
+              
+              <button 
+                class="sort-btn"
+                [class.active]="sortBy() === 'amount'"
+                (click)="toggleSort('amount')"
+              >
+                Amount
+                @if (sortBy() === 'amount') {
+                  <span class="sort-arrow">{{ sortOrder() === 'asc' ? '↑' : '↓' }}</span>
+                }
+              </button>
+            </div>
+
+            <button class="export-btn" (click)="exportToCSV()">
+              Export CSV
+            </button>
+          </div>
+
+          <!-- Transactions List -->
+          <div class="transactions-container">
+            @if (sortedTransactions().length === 0) {
+              <div class="empty-state">
+                <p>No transactions found</p>
+              </div>
+            }
+
+            @if (sortedTransactions().length > 0) {
+              <div class="transactions-list">
+                @for (txn of sortedTransactions(); track txn.id) {
+                  <div class="transaction-item">
+                    <div class="txn-main">
+                      <div class="txn-header">
+                        <span class="txn-date">{{ formatDate(txn.date) }}</span>
+                        <span class="txn-account">{{ txn.accountName }}</span>
+                      </div>
+                      <div class="txn-narration">{{ txn.narration }}</div>
+                      <div class="txn-category">
+                        <span class="category-icon">{{ txn.categoryIcon }}</span>
+                        <span class="category-label">{{ txn.categoryLabel }}</span>
+                        @if (txn.isInternalTransfer) {
+                          <span class="transfer-badge">Internal Transfer</span>
+                        }
+                        @if (txn.linkedAccountId) {
+                          <span class="linked-badge">Linked</span>
+                        }
+                      </div>
+                    </div>
+                    <div class="txn-amount" [class.credit]="txn.amount > 0" [class.debit]="txn.amount < 0">
+                      {{ formatAmount(txn.amount) }}
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        }
+      }
+    </div>
+  </div>
+</div>

@@ -6,6 +6,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { db, ImportRecord, Transaction, Account } from '../../core/models/db';
 import { ROOT_CATEGORIES, SubCategory } from '../../core/models/category.model';
 import { CategorizationService } from '../../core/services/categorization.service';
+import { TransferMatchingService } from '../../core/services/transfer-matching';
 
 interface TransactionWithCategory extends Transaction {
   rootCategoryLabel?: string;
@@ -34,6 +35,7 @@ export class ImportDetailComponent implements OnInit {
   transactions = signal<TransactionWithCategory[]>([]);
   rootCategories = ROOT_CATEGORIES;
   subCategories = signal<SubCategory[]>([]);
+  allAccounts = signal<Account[]>([]);
 
   // UI State
   isLoading = signal(true);
@@ -141,7 +143,8 @@ export class ImportDetailComponent implements OnInit {
   constructor(
     private route: ActivatedRoute,
     private router: Router,
-    private categorizationService: CategorizationService
+    private categorizationService: CategorizationService,
+    private transferMatchingService: TransferMatchingService
   ) {}
 
   async ngOnInit() {
@@ -153,6 +156,7 @@ export class ImportDetailComponent implements OnInit {
 
     await this.loadImportDetails(importId);
     await this.loadSubCategories();
+    await this.loadAccounts();
   }
 
   async loadImportDetails(importId: number) {
@@ -219,6 +223,17 @@ export class ImportDetailComponent implements OnInit {
       this.subCategories.set(subs);
     } catch (error) {
       console.error('Error loading subcategories:', error);
+    }
+  }
+
+  async loadAccounts() {
+    try {
+      const accounts = await db.accounts.toArray();
+      // Filter out the current account from the list (can't transfer to same account)
+      const filteredAccounts = accounts.filter(a => a.id !== this.account()?.id);
+      this.allAccounts.set(filteredAccounts);
+    } catch (error) {
+      console.error('Error loading accounts:', error);
     }
   }
 
@@ -371,20 +386,46 @@ export class ImportDetailComponent implements OnInit {
     }
   }
 
-  async quickCategorize(txn: Transaction, category: string | null) {
+  async quickCategorize(txn: Transaction, category: string | null, linkedAccountId?: number) {
     // Handle null/empty category (uncategorizing)
     if (!category || category === '' || category === 'null') {
       await this.updateTransactionCategory(txn.id!, undefined);
+      // If it was a transfer, unlink it
+      if (txn.isInternalTransfer) {
+        await this.transferMatchingService.unlinkTransfer(txn.id!);
+      }
       return;
     }
 
-    // Update transaction with new category
-    await this.updateTransactionCategory(txn.id!, category);
+    // Handle transfers category
+    if (category === 'transfers' && linkedAccountId) {
+      // Link as internal transfer
+      await this.transferMatchingService.linkTransfer({
+        sourceTransactionId: txn.id!,
+        linkedAccountId: linkedAccountId
+      });
+      
+      // Try to find and link matching transaction
+      const matches = await this.transferMatchingService.findPotentialMatches(txn, linkedAccountId, 3);
+      if (matches.length > 0 && (matches[0].confidence === 'exact' || matches[0].confidence === 'high')) {
+        await this.transferMatchingService.linkTransfer({
+          sourceTransactionId: txn.id!,
+          linkedAccountId: linkedAccountId,
+          linkedTransactionId: matches[0].transaction.id
+        });
+      }
+    } else {
+      // Update transaction with new category
+      await this.updateTransactionCategory(txn.id!, category);
 
-    // Save as rule for future using the service
-    // FIXED: Added bankName parameter
-    const merchantKey = this.categorizationService.extractMerchantKey(txn.narration, txn.bankName);
-    await this.categorizationService.createRule(merchantKey, category, 'user');
+      // Save as rule for future using the service
+      // FIXED: Added bankName parameter
+      const merchantKey = this.categorizationService.extractMerchantKey(txn.narration, txn.bankName);
+      await this.categorizationService.createRule(merchantKey, category, 'user');
+    }
+    
+    // Reload to show updated state
+    await this.loadImportDetails(this.import()!.id!);
   }
 
   // Clear all categories with warning
@@ -490,6 +531,11 @@ export class ImportDetailComponent implements OnInit {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(Math.abs(amount));
+  }
+
+  getAccountName(accountId: number): string {
+    const account = this.allAccounts().find(a => a.id === accountId);
+    return account?.name || 'Unknown Account';
   }
 
   // Helper methods for template

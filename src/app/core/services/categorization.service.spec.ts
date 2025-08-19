@@ -1,16 +1,21 @@
 import { CategorizationService } from './categorization.service';
 import { BankAdapterRegistry, initializeBankAdapters } from '../adapters';
+import { TransferMatchingService } from './transfer-matching';
 
 describe('CategorizationService', () => {
   let service: CategorizationService;
+  let transferMatchingService: TransferMatchingService;
 
   beforeEach(() => {
     // Clear and re-initialize adapters for each test
     BankAdapterRegistry.clear();
     initializeBankAdapters();
     
-    // Create service instance directly
-    service = new CategorizationService();
+    // Create mock transfer matching service
+    transferMatchingService = new TransferMatchingService();
+    
+    // Create service instance with dependency
+    service = new CategorizationService(transferMatchingService);
   });
 
   describe('extractMerchantKey', () => {

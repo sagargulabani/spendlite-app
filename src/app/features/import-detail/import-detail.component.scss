@@ -363,8 +363,16 @@
         }
 
         &.category-col {
-          .category-select {
-            width: 100%;
+          min-width: 280px;
+          
+          .category-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+          }
+          
+          .category-select, .account-select {
+            flex: 1;
             padding: 0.5rem;
             border: 2px solid #e5e7eb;
             border-radius: 0.375rem;
@@ -381,6 +389,16 @@
             &:hover {
               background: #f9fafb;
             }
+          }
+          
+          .transfer-badge {
+            padding: 0.25rem 0.5rem;
+            background: #e0f2fe;
+            color: #0369a1;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            white-space: nowrap;
           }
         }
       }

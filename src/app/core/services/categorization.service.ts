@@ -9,13 +9,14 @@ import {
 } from '../models/category.model';
 import { BankAdapterRegistry, initializeBankAdapters } from '../adapters';
 import type { BankAdapter } from '../adapters';
+import { TransferMatchingService } from './transfer-matching';
 
 @Injectable({
   providedIn: 'root'
 })
 export class CategorizationService {
 
-  constructor() {
+  constructor(private transferMatchingService: TransferMatchingService) {
     // Initialize bank adapters on service creation
     this.initializeAdapters();
   }
@@ -153,11 +154,17 @@ export class CategorizationService {
       return userRule.rootCategory;
     }
 
-    // 2. Check for hints from bank adapter
+    // 2. Check for hints from bank adapter and transfers
     if (hints.possibleCategory) {
       // Only use hint if confidence is high (e.g., explicit transfer patterns)
-      if (hints.isTransfer === true) {
+      if (hints.isTransfer === true || this.transferMatchingService.isLikelyTransfer(transaction.narration)) {
         await this.createRule(merchantKey, 'transfers', 'system', 0.8);
+        
+        // Try to auto-link if it's a transfer
+        if (transaction.id) {
+          await this.autoLinkTransferIfPossible(transaction);
+        }
+        
         return 'transfers';
       }
     }
@@ -176,9 +183,9 @@ export class CategorizationService {
         return 'subscriptions';
       }
     } else {
-      // For fuel merchants, categorize as transportation/fuel
-      await this.createRule(merchantKey, 'transportation', 'system', 0.9);
-      return 'transportation';
+      // For fuel merchants, categorize as transport/fuel
+      await this.createRule(merchantKey, 'transport', 'system', 0.9);
+      return 'transport';
     }
 
     // 4. Check system rules
@@ -451,6 +458,54 @@ export class CategorizationService {
         lastUsed: new Date(),
         createdAt: new Date()
       });
+    }
+  }
+
+  // Auto-link transfer if possible during categorization
+  private async autoLinkTransferIfPossible(transaction: Transaction): Promise<void> {
+    try {
+      // Extract account hints from narration
+      const hints = this.transferMatchingService.extractAccountHints(transaction.narration);
+      
+      if (!hints.accountLast4) {
+        return; // No account info to match
+      }
+
+      // Find matching account
+      const accounts = await db.accounts.toArray();
+      const targetAccount = accounts.find(a => 
+        a.accountNumber?.endsWith(hints.accountLast4!) &&
+        a.id !== transaction.accountId
+      );
+
+      if (!targetAccount || !targetAccount.id) {
+        return; // No matching account found
+      }
+
+      // Find potential matching transaction
+      const matches = await this.transferMatchingService.findPotentialMatches(
+        transaction, 
+        targetAccount.id, 
+        3
+      );
+
+      // Auto-link if we have a high-confidence match
+      if (matches.length > 0 && (matches[0].confidence === 'exact' || matches[0].confidence === 'high')) {
+        await this.transferMatchingService.linkTransfer({
+          sourceTransactionId: transaction.id!,
+          linkedAccountId: targetAccount.id,
+          linkedTransactionId: matches[0].transaction.id
+        });
+      } else {
+        // Just mark the account but don't link to specific transaction
+        await this.transferMatchingService.linkTransfer({
+          sourceTransactionId: transaction.id!,
+          linkedAccountId: targetAccount.id
+        });
+      }
+    } catch (error) {
+      console.error('Error auto-linking transfer:', error);
+      // Don't fail categorization if linking fails
     }
   }
 

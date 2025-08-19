@@ -5,6 +5,7 @@ import { AccountsListComponent } from './features/accounts-list/accounts-list.co
 import { ImportsListComponent } from './features/import-list/import-list.component';
 import { ImportDetailComponent } from './features/import-detail/import-detail.component';
 import { CategoryManagementComponent } from './features/category-management/category-management.component';
+import { AnalyticsComponent } from './features/analytics/analytics';
 
 export const routes: Routes = [
   {
@@ -36,6 +37,11 @@ export const routes: Routes = [
     path: 'categories',
     component: CategoryManagementComponent,
     title: 'Category Management - SpendLite'
+  },
+  {
+    path: 'analytics',
+    component: AnalyticsComponent,
+    title: 'Analytics - SpendLite'
   },
   {
     path: '**',

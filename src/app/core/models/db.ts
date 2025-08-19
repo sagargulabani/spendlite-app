@@ -62,6 +62,12 @@ export interface Transaction {
   tags?: string[];
   isReconciled: boolean;
   createdAt: Date;
+
+  // Transfer linking fields
+  isInternalTransfer?: boolean;
+  linkedAccountId?: number; // The account on the other side of the transfer
+  linkedTransactionId?: number; // The matching transaction in the linked account
+  transferGroupId?: string; // UUID to group related transfer transactions
 }
 
 // Duplicate detection result
@@ -83,11 +89,11 @@ export class SpendLiteDB extends Dexie {
   constructor() {
     super('SpendLiteDB');
 
-    // Define schema - Version 2 with fingerprint index
-    this.version(3).stores({
+    // Define schema - Version 4 with transfer linking
+    this.version(4).stores({
       accounts: '++id, name, bankName, isActive',
       imports: '++id, accountId, importedAt, status',
-      transactions: '++id, accountId, importId, date, amount, fingerprint, [accountId+fingerprint], [accountId+date], category',
+      transactions: '++id, accountId, importId, date, amount, fingerprint, [accountId+fingerprint], [accountId+date], category, linkedAccountId, transferGroupId',
       subCategories: '++id, rootId, label',
       categoryRules: '++id, merchantKey, rootCategory, createdBy'
     });

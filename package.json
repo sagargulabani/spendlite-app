@@ -8,7 +8,7 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "serve:ssr:spendlite-app": "node dist/spendlite-app/server/server.mjs",
-    "copytoserver" : "npm run build && scp -r -i ~/dev/sshkeys/lightsail-mumbai.pem ./dist/ ubuntu@15.206.161.107:/home/ubuntu/projects/spendlite-app-frontend"
+    "copytoserver": "npm run build && scp -r -i ~/dev/sshkeys/lightsail-mumbai.pem ./dist/ ubuntu@15.206.161.107:/home/ubuntu/projects/spendlite-app-frontend"
   },
   "private": true,
   "dependencies": {
@@ -21,8 +21,10 @@
     "@angular/router": "^20.0.0",
     "@angular/ssr": "^20.0.0",
     "@types/papaparse": "^5.3.16",
+    "chart.js": "^4.5.0",
     "dexie": "^4.0.11",
     "express": "^5.1.0",
+    "ng2-charts": "^8.0.0",
     "papaparse": "^5.5.3",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",

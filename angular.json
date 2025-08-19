@@ -79,6 +79,7 @@
           "options": {
             "tsConfig": "tsconfig.spec.json",
             "inlineStyleLanguage": "scss",
+            "polyfills": ["src/test-setup.ts"],
             "assets": [
               {
                 "glob": "**/*",
