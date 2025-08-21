@@ -89,13 +89,51 @@ export class SpendLiteDB extends Dexie {
   constructor() {
     super('SpendLiteDB');
 
-    // Define schema - Version 4 with transfer linking
+    // Version 1: Initial schema
+    this.version(1).stores({
+      accounts: '++id, name, bankName, isActive',
+      imports: '++id, accountId, importedAt, status',
+      transactions: '++id, accountId, importId, date, amount, fingerprint, [accountId+fingerprint], [accountId+date]',
+      subCategories: '++id, rootId, label',
+      categoryRules: '++id, merchantKey, rootCategory, createdBy'
+    });
+
+    // Version 2: Added fingerprinting (no schema change needed)
+    this.version(2).stores({
+      accounts: '++id, name, bankName, isActive',
+      imports: '++id, accountId, importedAt, status',
+      transactions: '++id, accountId, importId, date, amount, fingerprint, [accountId+fingerprint], [accountId+date]',
+      subCategories: '++id, rootId, label',
+      categoryRules: '++id, merchantKey, rootCategory, createdBy'
+    });
+
+    // Version 3: Added category index
+    this.version(3).stores({
+      accounts: '++id, name, bankName, isActive',
+      imports: '++id, accountId, importedAt, status',
+      transactions: '++id, accountId, importId, date, amount, fingerprint, [accountId+fingerprint], [accountId+date], category',
+      subCategories: '++id, rootId, label',
+      categoryRules: '++id, merchantKey, rootCategory, createdBy'
+    });
+
+    // Version 4: Added transfer linking
     this.version(4).stores({
       accounts: '++id, name, bankName, isActive',
       imports: '++id, accountId, importedAt, status',
       transactions: '++id, accountId, importId, date, amount, fingerprint, [accountId+fingerprint], [accountId+date], category, linkedAccountId, transferGroupId',
       subCategories: '++id, rootId, label',
       categoryRules: '++id, merchantKey, rootCategory, createdBy'
+    }).upgrade(trans => {
+      // No data transformation needed, just schema changes
+    });
+
+    // Handle database open errors gracefully
+    this.on('blocked', () => {
+      console.warn('Database upgrade blocked by another tab. Please close other tabs and reload.');
+    });
+
+    this.on('versionchange', () => {
+      console.log('Database version changed in another tab');
     });
   }
 }

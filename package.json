@@ -8,7 +8,7 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "serve:ssr:spendlite-app": "node dist/spendlite-app/server/server.mjs",
-    "copytoserver": "npm run build && scp -r -i ~/dev/sshkeys/lightsail-mumbai.pem ./dist/ ubuntu@15.206.161.107:/home/ubuntu/projects/spendlite-app-frontend"
+    "copytoserver": "ng build --configuration=production && scp -r -i ~/dev/sshkeys/lightsail-mumbai.pem ./dist/spendlite-app ubuntu@15.206.161.107:/home/ubuntu/projects/spendlite-app-frontend"
   },
   "private": true,
   "dependencies": {

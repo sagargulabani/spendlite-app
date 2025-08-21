@@ -1,6 +1,26 @@
 <div class="analytics-container">
   <!-- Sticky Filters Section -->
   <div class="filters-section">
+    <!-- Quick Date Filters -->
+    <div class="quick-filters">
+      <span class="quick-filter-label">Quick Filters:</span>
+      <button class="btn-quick-filter" (click)="setCurrentFinancialYear()">
+        Current FY
+      </button>
+      <button class="btn-quick-filter" (click)="setLastFinancialYear()">
+        Last FY
+      </button>
+      <button class="btn-quick-filter" (click)="setLast6Months()">
+        Last 6 Months
+      </button>
+      <button class="btn-quick-filter" (click)="setLast3Months()">
+        Last 3 Months
+      </button>
+      <button class="btn-quick-filter" (click)="setLastCalendarMonth()">
+        Last Month
+      </button>
+    </div>
+    
     <div class="filters-wrapper">
       <div class="filter-group">
         <label for="startDate">Start Date</label>
@@ -88,7 +108,7 @@
           </div>
           <div class="kpi-value">{{ formattedExpenses() }}</div>
           <div class="kpi-subtitle">
-            All expense categories combined
+            Categorized expenses only
           </div>
         </div>
 

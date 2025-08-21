@@ -45,6 +45,7 @@ export const ROOT_CATEGORIES: RootCategory[] = [
   { id: 'investments', label: 'Investments', icon: '📈', color: '#10b981', description: 'Mutual funds, stocks, trading, SIPs' },
   { id: 'subscriptions', label: 'Subscriptions', icon: '🔄', color: '#f97316', description: 'Streaming, software, memberships' },
   { id: 'loans', label: 'Loans & EMIs', icon: '💳', color: '#dc2626', description: 'Credit cards, loans, EMI payments' },
+  { id: 'fees', label: 'Fees & Charges', icon: '🏦', color: '#6b7280', description: 'Bank fees, service charges, penalties' },
   { id: 'transfers', label: 'Transfers', icon: '↔️', color: '#64748b', description: 'Personal transfers, self transfers' },
   { id: 'business', label: 'Business', icon: '💼', color: '#059669', description: 'Business income, expenses, freelance' },
   { id: 'misc', label: 'Miscellaneous', icon: '📌', color: '#94a3b8', description: 'Other expenses' }
@@ -122,6 +123,7 @@ export const DEFAULT_KEYWORD_MAP: Record<string, string> = {
 
   // Utilities & Bills
   'TORRENTPOWER': 'utilities',
+  'ADANI': 'utilities',  // Matches ADANI GAS, ADANI ELECTRICITY, etc.
   'ADANIGAS': 'utilities',
   'ADANIELECT': 'utilities',
   'MAHANAGAR': 'utilities',

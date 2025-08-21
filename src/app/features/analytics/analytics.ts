@@ -152,6 +152,72 @@ export class AnalyticsComponent implements OnInit {
     this.loadAnalytics();
   }
 
+  // Quick date filter methods
+  setLastFinancialYear() {
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth(); // 0-based
+    
+    // Indian Financial Year: April 1 to March 31
+    let startYear = currentMonth < 3 ? currentYear - 2 : currentYear - 1;
+    let endYear = startYear + 1;
+    
+    const startDate = new Date(startYear, 3, 1); // April 1
+    const endDate = new Date(endYear, 2, 31); // March 31
+    
+    this.startDate.set(this.formatDateForInput(startDate));
+    this.endDate.set(this.formatDateForInput(endDate));
+    this.loadAnalytics();
+  }
+
+  setLast6Months() {
+    const today = new Date();
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(today.getMonth() - 6);
+    
+    this.startDate.set(this.formatDateForInput(sixMonthsAgo));
+    this.endDate.set(this.formatDateForInput(today));
+    this.loadAnalytics();
+  }
+
+  setLast3Months() {
+    const today = new Date();
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(today.getMonth() - 3);
+    
+    this.startDate.set(this.formatDateForInput(threeMonthsAgo));
+    this.endDate.set(this.formatDateForInput(today));
+    this.loadAnalytics();
+  }
+
+  setLastCalendarMonth() {
+    const today = new Date();
+    const lastMonth = today.getMonth() === 0 ? 11 : today.getMonth() - 1;
+    const year = today.getMonth() === 0 ? today.getFullYear() - 1 : today.getFullYear();
+    
+    const startDate = new Date(year, lastMonth, 1);
+    const endDate = new Date(year, lastMonth + 1, 0); // Last day of the month
+    
+    this.startDate.set(this.formatDateForInput(startDate));
+    this.endDate.set(this.formatDateForInput(endDate));
+    this.loadAnalytics();
+  }
+
+  setCurrentFinancialYear() {
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth(); // 0-based
+    
+    // Indian Financial Year: April 1 to March 31
+    let startYear = currentMonth < 3 ? currentYear - 1 : currentYear;
+    
+    const startDate = new Date(startYear, 3, 1); // April 1
+    
+    this.startDate.set(this.formatDateForInput(startDate));
+    this.endDate.set(this.formatDateForInput(today));
+    this.loadAnalytics();
+  }
+
   private formatDateForInput(date: Date): string {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');

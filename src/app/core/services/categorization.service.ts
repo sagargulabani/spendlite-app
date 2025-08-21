@@ -169,9 +169,17 @@ export class CategorizationService {
       }
     }
 
-    // 3. Check for recurring pattern (but exclude fuel/petrol merchants)
+    // 3. Try special pattern detection first (high priority for clear patterns)
+    const specialCategory = await this.detectSpecialPatterns(transaction);
+    if (specialCategory) {
+      await this.createRule(merchantKey, specialCategory, 'system', 0.7);
+      return specialCategory;
+    }
+
+    // 4. Check for recurring pattern (but exclude fuel/petrol merchants)
     // Fuel merchants often have regular transactions but varying amounts
-    const fuelKeywords = ['PETROL', 'DIESEL', 'FUEL', 'GAS', 'INDIAN OIL', 'BHARAT PETROLEUM', 'HP PETROL', 'SHELL', 'ESSAR'];
+    // Note: Removed 'GAS' as it conflicts with utility companies like ADANI GAS
+    const fuelKeywords = ['PETROL', 'DIESEL', 'FUEL', 'INDIAN OIL', 'BHARAT PETROLEUM', 'HP PETROL', 'SHELL', 'ESSAR'];
     const isFuelMerchant = fuelKeywords.some(keyword => 
       merchantKey.includes(keyword) || transaction.narration.toUpperCase().includes(keyword)
     );
@@ -188,7 +196,7 @@ export class CategorizationService {
       return 'transport';
     }
 
-    // 4. Check system rules
+    // 5. Check system rules
     const systemRule = await db.categoryRules
       .where('merchantKey')
       .equals(merchantKey)
@@ -201,13 +209,6 @@ export class CategorizationService {
         lastUsed: new Date()
       });
       return systemRule.rootCategory;
-    }
-
-    // 5. Try special pattern detection
-    const specialCategory = await this.detectSpecialPatterns(transaction);
-    if (specialCategory) {
-      await this.createRule(merchantKey, specialCategory, 'system', 0.7);
-      return specialCategory;
     }
 
     // 6. Check default keyword mappings
@@ -373,30 +374,94 @@ export class CategorizationService {
     const amount = transaction.amount;
 
     // Only detect very clear, bank-agnostic patterns
-
-    if (narrationUpper.includes('CASHBACK')) {
+    
+    // Handle refunds intelligently - categorize based on merchant
+    if (narrationUpper.includes('REFUND')) {
+      // Try to identify the merchant and categorize accordingly
+      const merchantKey = this.extractMerchantKey(transaction.narration, transaction.bankName);
+      
+      // Check if we have a known category for this merchant
+      if (DEFAULT_KEYWORD_MAP[merchantKey]) {
+        return DEFAULT_KEYWORD_MAP[merchantKey];
+      }
+      
+      // Check for specific refund patterns
+      for (const [keyword, category] of Object.entries(DEFAULT_KEYWORD_MAP)) {
+        if (narrationUpper.includes(keyword)) {
+          return category; // Return the merchant's category, not 'income'
+        }
+      }
+      
+      // If we can't identify the merchant, default to income
+      return 'income';
+    }
+    
+    // Other income patterns
+    if (narrationUpper.includes('CASHBACK') ||
+        narrationUpper.includes('INTEREST PAID') ||
+        narrationUpper.includes('INTEREST CREDIT')) {
       return 'income';
     }
 
     if (amount > 0 && narrationUpper.includes('SALARY')) {
       return 'income';
     }
-
-    if (narrationUpper.includes('EMI') ||
-        narrationUpper.includes('LOAN PAYMENT') ||
-        narrationUpper.includes('CREDIT CARD PAYMENT')) {
-      return 'loans';
+    
+    // Insurance claims are income (check before insurance premiums)
+    if (narrationUpper.includes('INSURANCE CLAIM') ||
+        narrationUpper.includes('CLAIM SETTLEMENT') ||
+        narrationUpper.includes('CLAIM AMOUNT')) {
+      return 'income';
     }
-
+    
+    // Car/Vehicle insurance goes to transport
+    if (narrationUpper.includes('CAR INSURANCE') ||
+        narrationUpper.includes('VEHICLE INSURANCE') ||
+        narrationUpper.includes('MOTOR INSURANCE') ||
+        narrationUpper.includes('AUTO INSURANCE') ||
+        narrationUpper.includes('TWO WHEELER INSURANCE') ||
+        narrationUpper.includes('BIKE INSURANCE')) {
+      return 'transport';
+    }
+    
+    // Health and life insurance premiums go to health (check after claims and vehicle insurance)
+    if (narrationUpper.includes('INSURANCE PREMIUM') ||
+        narrationUpper.includes('LIC PREMIUM') ||
+        narrationUpper.includes('HEALTH INSURANCE') ||
+        narrationUpper.includes('LIFE INSURANCE') ||
+        narrationUpper.includes('MEDICAL INSURANCE')) {
+      return 'health';
+    }
+    
+    // Investments (check before fees to catch SIP correctly)
     if (narrationUpper.includes('MUTUAL FUND') ||
         narrationUpper.includes('SIP') ||
         narrationUpper.includes('TRADING')) {
       return 'investments';
     }
 
-    if (narrationUpper.includes('INSURANCE') ||
-        narrationUpper.includes('LIC PREMIUM')) {
-      return 'health';
+    // Loans and EMIs
+    if (narrationUpper.includes('EMI') ||
+        narrationUpper.includes('LOAN PAYMENT') ||
+        narrationUpper.includes('CREDIT CARD PAYMENT')) {
+      return 'loans';
+    }
+    
+    // Bank fees and charges (check after SIP to avoid false positives)
+    if (narrationUpper.includes('SERVICE CHARGE') ||
+        narrationUpper.includes('BANK CHARGE') ||
+        narrationUpper.includes('PROCESSING FEE') ||
+        narrationUpper.includes('TRANSACTION FEE') ||
+        narrationUpper.includes('ATM FEE') ||
+        narrationUpper.includes('PENALTY') ||
+        narrationUpper.includes('LATE FEE') ||
+        narrationUpper.includes('RETURN CHARGE') ||
+        narrationUpper.includes('ACH DEBIT RETURN CHARGE') ||
+        narrationUpper.includes('CHEQUE BOUNCE') ||
+        narrationUpper.includes('MIN BAL CHARGE') ||
+        narrationUpper.includes('ANNUAL FEE') ||
+        narrationUpper.includes('MAINTENANCE CHARGE')) {
+      return 'fees';
     }
 
     if (narrationUpper.includes('SCHOOL FEE') ||

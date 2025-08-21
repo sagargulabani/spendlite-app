@@ -82,13 +82,27 @@ export class AnalyticsDataService {
     let uncategorizedCount = 0;
 
     for (const txn of transactions) {
+      // Track categorization status
+      if (txn.category) {
+        categorizedCount++;
+      } else {
+        uncategorizedCount++;
+      }
+
+      // Skip uncategorized transactions from income/expense calculations
+      // We don't know what they are yet
+      if (!txn.category) {
+        continue;
+      }
+
       // Skip internal transfers from income/expense calculations
       if (txn.isInternalTransfer) {
-        if (txn.category) {
-          categorizedCount++;
-        } else {
-          uncategorizedCount++;
-        }
+        continue; // Don't count in income or expenses
+      }
+
+      // Skip investments from income/expense calculations
+      // Investments are asset transfers, not expenses
+      if (txn.category === 'investments') {
         continue; // Don't count in income or expenses
       }
 
@@ -96,18 +110,12 @@ export class AnalyticsDataService {
       if (txn.category === 'income') {
         totalIncome += Math.abs(txn.amount);
       } else if (txn.amount < 0) {
-        // Expenses are negative amounts (excluding income category and transfers)
+        // Expenses are negative amounts (excluding income, transfers, investments, and uncategorized)
         totalExpenses += Math.abs(txn.amount);
       } else if (txn.amount > 0 && txn.category !== 'income') {
         // Positive amounts that aren't categorized as income might be refunds
         // We'll count them as reducing expenses
         totalExpenses -= txn.amount;
-      }
-
-      if (txn.category) {
-        categorizedCount++;
-      } else {
-        uncategorizedCount++;
       }
     }
 
@@ -125,9 +133,10 @@ export class AnalyticsDataService {
     const categoryMap = new Map<string, { amount: number; count: number; isTransfer?: boolean }>();
 
     for (const txn of transactions) {
-      if (!txn.category) continue;
+      // Use 'uncategorized' as the category ID for uncategorized transactions
+      const categoryId = txn.category || 'uncategorized';
       
-      const existing = categoryMap.get(txn.category) || { amount: 0, count: 0 };
+      const existing = categoryMap.get(categoryId) || { amount: 0, count: 0 };
       existing.amount += Math.abs(txn.amount);
       existing.count++;
       
@@ -136,7 +145,7 @@ export class AnalyticsDataService {
         existing.isTransfer = true;
       }
       
-      categoryMap.set(txn.category, existing);
+      categoryMap.set(categoryId, existing);
     }
 
     const totalAmount = Array.from(categoryMap.values())
@@ -144,17 +153,30 @@ export class AnalyticsDataService {
 
     const breakdown: CategoryAnalytics[] = [];
     for (const [categoryId, data] of categoryMap.entries()) {
-      const rootCategory = ROOT_CATEGORIES.find(c => c.id === categoryId);
-      if (rootCategory) {
+      if (categoryId === 'uncategorized') {
+        // Add uncategorized as a special category
         breakdown.push({
-          categoryId,
-          label: rootCategory.label,
-          icon: rootCategory.icon,
-          color: rootCategory.color,
+          categoryId: 'uncategorized',
+          label: 'Uncategorized',
+          icon: '❓',
+          color: '#9CA3AF',
           amount: data.amount,
           count: data.count,
           percentage: totalAmount > 0 ? (data.amount / totalAmount) * 100 : 0
         });
+      } else {
+        const rootCategory = ROOT_CATEGORIES.find(c => c.id === categoryId);
+        if (rootCategory) {
+          breakdown.push({
+            categoryId,
+            label: rootCategory.label,
+            icon: rootCategory.icon,
+            color: rootCategory.color,
+            amount: data.amount,
+            count: data.count,
+            percentage: totalAmount > 0 ? (data.amount / totalAmount) * 100 : 0
+          });
+        }
       }
     }
 
@@ -165,28 +187,42 @@ export class AnalyticsDataService {
   }
 
   private calculateMonthlyTrend(transactions: Transaction[]): any[] {
-    const monthlyData = new Map<string, { income: number; expenses: number; transfers: number }>();
+    const monthlyData = new Map<string, { income: number; expenses: number; transfers: number; investments: number; uncategorized: number }>();
 
     for (const txn of transactions) {
+      const date = new Date(txn.date);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const existing = monthlyData.get(monthKey) || { income: 0, expenses: 0, transfers: 0, investments: 0, uncategorized: 0 };
+      
+      // Track uncategorized separately
+      if (!txn.category) {
+        existing.uncategorized += Math.abs(txn.amount);
+        monthlyData.set(monthKey, existing);
+        continue;
+      }
+      
       // Skip internal transfers from income/expense trends
       if (txn.isInternalTransfer) {
-        const date = new Date(txn.date);
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        const existing = monthlyData.get(monthKey) || { income: 0, expenses: 0, transfers: 0 };
         existing.transfers += Math.abs(txn.amount);
         monthlyData.set(monthKey, existing);
         continue;
       }
       
-      const date = new Date(txn.date);
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      
-      const existing = monthlyData.get(monthKey) || { income: 0, expenses: 0, transfers: 0 };
+      // Track investments separately
+      if (txn.category === 'investments') {
+        existing.investments += Math.abs(txn.amount);
+        monthlyData.set(monthKey, existing);
+        continue;
+      }
       
       if (txn.category === 'income') {
         existing.income += Math.abs(txn.amount);
       } else if (txn.amount < 0) {
+        // Expenses exclude transfers, investments, and uncategorized
         existing.expenses += Math.abs(txn.amount);
+      } else if (txn.amount > 0 && txn.category !== 'income') {
+        // Refunds reduce expenses
+        existing.expenses -= txn.amount;
       }
       
       monthlyData.set(monthKey, existing);

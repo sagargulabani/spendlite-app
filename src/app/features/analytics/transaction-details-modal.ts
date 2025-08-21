@@ -84,7 +84,10 @@ export class TransactionDetailsModal implements OnInit, AfterViewInit {
     
     // If category is selected, filter by that category
     if (this.selectedCategory()) {
-      txns = txns.filter(t => t.category === this.selectedCategory());
+      txns = txns.filter(t => {
+        const categoryToMatch = t.category || 'Uncategorized';
+        return categoryToMatch === this.selectedCategory();
+      });
     }
     
     if (!query) return txns;
@@ -241,7 +244,7 @@ export class TransactionDetailsModal implements OnInit, AfterViewInit {
     
     // Group by category
     transactions.forEach(t => {
-      const categoryId = t.category || 'uncategorized';
+      const categoryId = t.category || 'Uncategorized';
       const existing = categoryMap.get(categoryId);
       
       if (existing) {
