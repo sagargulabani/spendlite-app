@@ -29,6 +29,15 @@ export interface CategoryRule {
   createdAt?: Date;
 }
 
+// Categories that are NOT considered expenses
+export const NON_EXPENSE_CATEGORIES = ['income', 'investments', 'transfers', 'loans'] as const;
+
+// Helper function to check if a category is an expense
+export function isExpenseCategory(category: string | undefined | null): boolean {
+  if (!category) return false; // Uncategorized is not an expense
+  return !NON_EXPENSE_CATEGORIES.includes(category as any);
+}
+
 // Fixed root categories - Updated with travel, investments, and digital goods categories
 export const ROOT_CATEGORIES: RootCategory[] = [
   { id: 'income', label: 'Income', icon: '💰', color: '#00b17c', description: 'Salary, refunds, cashback' },
@@ -38,13 +47,14 @@ export const ROOT_CATEGORIES: RootCategory[] = [
   { id: 'transport', label: 'Transport', icon: '🚗', color: '#3b82f6', description: 'Local cabs, fuel, metro, daily commute' },
   { id: 'travel', label: 'Travel & Tourism', icon: '✈️', color: '#0ea5e9', description: 'Flights, hotels, train bookings, vacations' },
   { id: 'health', label: 'Health', icon: '🏥', color: '#ef4444', description: 'Medical, pharmacy, insurance, fitness' },
+  { id: 'personal-care', label: 'Personal Care', icon: '💆', color: '#f472b6', description: 'Salon, haircut, grooming, cosmetics' },
   { id: 'shopping', label: 'Shopping', icon: '🛍️', color: '#ec4899', description: 'Clothes, electronics, household items' },
   { id: 'digital', label: 'Digital Goods', icon: '💻', color: '#7c3aed', description: 'Apps, software, digital media, online services' },
   { id: 'entertainment', label: 'Entertainment', icon: '🎮', color: '#a855f7', description: 'Movies, games, hobbies, events' },
   { id: 'education', label: 'Education', icon: '📚', color: '#14b8a6', description: 'Courses, books, school fees' },
   { id: 'investments', label: 'Investments', icon: '📈', color: '#10b981', description: 'Mutual funds, stocks, trading, SIPs' },
   { id: 'subscriptions', label: 'Subscriptions', icon: '🔄', color: '#f97316', description: 'Streaming, software, memberships' },
-  { id: 'loans', label: 'Loans & EMIs', icon: '💳', color: '#dc2626', description: 'Credit cards, loans, EMI payments' },
+  { id: 'loans', label: 'Loans & EMIs', icon: '💳', color: '#dc2626', description: 'Loan repayments, EMIs, credit card payments (not counted as expenses)' },
   { id: 'fees', label: 'Fees & Charges', icon: '🏦', color: '#6b7280', description: 'Bank fees, service charges, penalties' },
   { id: 'transfers', label: 'Transfers', icon: '↔️', color: '#64748b', description: 'Personal transfers, self transfers' },
   { id: 'business', label: 'Business', icon: '💼', color: '#059669', description: 'Business income, expenses, freelance' },

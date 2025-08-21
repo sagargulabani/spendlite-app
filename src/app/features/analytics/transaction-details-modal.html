@@ -64,7 +64,12 @@
               
               <!-- Category List -->
               <div class="category-list">
-                <h3 class="list-title">Category Breakdown</h3>
+                <div class="list-header">
+                  <h3 class="list-title">Category Breakdown</h3>
+                  <button class="export-btn" (click)="exportCategoryBreakdown()">
+                    📊 Export CSV
+                  </button>
+                </div>
                 <div class="category-items">
                   @for (category of categoryBreakdown(); track category.categoryId) {
                     <div class="category-item" (click)="drillDownToCategory(category.categoryId)">

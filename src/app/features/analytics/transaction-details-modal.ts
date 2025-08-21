@@ -1,14 +1,14 @@
-import { Component, Input, Output, EventEmitter, signal, computed, OnInit, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
+import { Component, Input, Output, EventEmitter, signal, computed, OnInit, ViewChild, ElementRef, AfterViewInit, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { db, Transaction, Account } from '../../core/models/db';
-import { ROOT_CATEGORIES } from '../../core/models/category.model';
+import { ROOT_CATEGORIES, isExpenseCategory } from '../../core/models/category.model';
 import { Chart, ChartConfiguration, ChartType, registerables } from 'chart.js';
 
 // Register Chart.js components
 Chart.register(...registerables);
 
-export type TransactionFilter = 'income' | 'expenses' | 'net' | 'transfers' | 'category';
+export type TransactionFilter = 'income' | 'investments' | 'expenses' | 'transfers' | 'category';
 
 export interface TransactionDetailsData {
   filter: TransactionFilter;
@@ -49,6 +49,31 @@ export class TransactionDetailsModal implements OnInit, AfterViewInit {
   @Output() close = new EventEmitter<void>();
   
   @ViewChild('chartCanvas') chartCanvas?: ElementRef<HTMLCanvasElement>;
+  
+  constructor() {
+    // Redraw chart when category breakdown changes and we're in chart view
+    effect(() => {
+      const breakdown = this.categoryBreakdown();
+      const viewMode = this.viewMode();
+      const isLoading = this.isLoading();
+      
+      console.log('Effect triggered - viewMode:', viewMode, 'isLoading:', isLoading, 'breakdown length:', breakdown.length, 'canvas exists:', !!this.chartCanvas?.nativeElement);
+      
+      if (viewMode === 'chart' && !isLoading && breakdown.length > 0) {
+        // Wait for canvas to be available
+        const checkAndDraw = () => {
+          if (this.chartCanvas?.nativeElement) {
+            console.log('Drawing chart - canvas now available');
+            this.drawChart();
+          } else {
+            // Try again in next tick if canvas not ready
+            setTimeout(checkAndDraw, 50);
+          }
+        };
+        setTimeout(checkAndDraw, 50);
+      }
+    });
+  }
   
   // View state
   viewMode = signal<ViewMode>('chart');
@@ -121,10 +146,32 @@ export class TransactionDetailsModal implements OnInit, AfterViewInit {
   });
   
   totalAmount = computed(() => {
-    if (this.selectedCategory()) {
-      return this.filteredTransactions().reduce((sum, t) => sum + t.amount, 0);
+    const transactions = this.selectedCategory() ? this.filteredTransactions() : this.transactions();
+    
+    // For investments, show NET (investments minus redemptions)
+    if (this.data?.filter === 'investments') {
+      const investmentTotal = transactions
+        .filter(t => t.amount < 0)  // Money going out
+        .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+      const returnTotal = transactions
+        .filter(t => t.amount > 0)  // Money coming back
+        .reduce((sum, t) => sum + t.amount, 0);
+      const netInvestment = investmentTotal - returnTotal;
+      console.log(`Modal investments: ${investmentTotal}, Returns: ${returnTotal}, Net: ${netInvestment}`);
+      console.log(`Transaction count: ${transactions.length}`);
+      return netInvestment;  // Show NET investment
     }
-    return this.transactions().reduce((sum, t) => sum + t.amount, 0);
+    
+    // For income, use absolute values
+    if (this.data?.filter === 'income') {
+      const total = transactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+      console.log(`Modal total for income: ${total}`);
+      console.log(`Transaction count: ${transactions.length}`);
+      return total;
+    }
+    
+    // For expenses, transfers, and categories, use actual amounts
+    return transactions.reduce((sum, t) => sum + t.amount, 0);
   });
   
   transactionCount = computed(() => {
@@ -139,8 +186,10 @@ export class TransactionDetailsModal implements OnInit, AfterViewInit {
   }
   
   ngAfterViewInit() {
-    // Draw chart after view is initialized
-    if (this.isExpensesView() && this.viewMode() === 'chart') {
+    console.log('ngAfterViewInit - canvas exists:', !!this.chartCanvas?.nativeElement);
+    // Draw chart after view is initialized if we're in chart mode
+    if (this.isExpensesView() && this.viewMode() === 'chart' && this.categoryBreakdown().length > 0) {
+      console.log('Drawing chart from ngAfterViewInit');
       setTimeout(() => this.drawChart(), 100);
     }
   }
@@ -178,18 +227,25 @@ export class TransactionDetailsModal implements OnInit, AfterViewInit {
           );
           break;
           
-        case 'expenses':
+        case 'investments':
           filtered = filtered.filter(t => 
-            t.category !== 'income' && 
-            t.category !== 'transfers' && 
-            !t.isInternalTransfer &&
-            t.amount < 0
+            t.category === 'investments' && !t.isInternalTransfer
           );
+          console.log('Investment transactions in modal:', filtered.length);
+          let manualTotal = 0;
+          filtered.forEach(t => {
+            const absAmount = Math.abs(t.amount);
+            manualTotal += absAmount;
+            console.log(`  Amount: ${t.amount}, Absolute: ${absAmount}, Running: ${manualTotal}`);
+          });
+          console.log(`Manual calculation total: ${manualTotal}`);
           break;
           
-        case 'net':
+        case 'expenses':
           filtered = filtered.filter(t => 
-            t.category !== 'transfers' && !t.isInternalTransfer
+            isExpenseCategory(t.category) && // Use shared logic
+            !t.isInternalTransfer
+            // Include both expenses (negative) and refunds (positive) in expense categories
           );
           break;
           
@@ -240,32 +296,52 @@ export class TransactionDetailsModal implements OnInit, AfterViewInit {
   
   private calculateCategoryBreakdown(transactions: TransactionWithAccount[]) {
     const categoryMap = new Map<string, CategoryBreakdown>();
-    const totalAmount = transactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
     
-    // Group by category
-    transactions.forEach(t => {
-      const categoryId = t.category || 'Uncategorized';
+    // Filter out uncategorized transactions for the pie chart
+    const categorizedTransactions = transactions.filter(t => t.category);
+    
+    // Group by category (only categorized transactions)
+    categorizedTransactions.forEach(t => {
+      const categoryId = t.category!; // We know it exists due to filter
       const existing = categoryMap.get(categoryId);
       
+      // For expenses, handle refunds properly
+      let amountToAdd: number;
+      if (t.amount < 0) {
+        // Normal expense - use absolute value
+        amountToAdd = Math.abs(t.amount);
+      } else {
+        // Refund - subtract from total (negative value reduces the expense)
+        amountToAdd = -t.amount;
+      }
+      
       if (existing) {
-        existing.amount += Math.abs(t.amount);
+        existing.amount += amountToAdd;
         existing.count++;
       } else {
         const category = ROOT_CATEGORIES.find(c => c.id === categoryId);
-        categoryMap.set(categoryId, {
-          categoryId,
-          label: category?.label || 'Uncategorized',
-          icon: category?.icon || '📝',
-          color: category?.color || '#9CA3AF',
-          amount: Math.abs(t.amount),
-          count: 1,
-          percentage: 0
-        });
+        if (category) {
+          categoryMap.set(categoryId, {
+            categoryId,
+            label: category.label,
+            icon: category.icon || '📝',
+            color: category.color || '#9CA3AF',
+            amount: amountToAdd,
+            count: 1,
+            percentage: 0
+          });
+        }
       }
     });
     
+    // Filter out categories with zero or negative amounts (where refunds exceed expenses)
+    const validCategories = Array.from(categoryMap.values()).filter(cat => cat.amount > 0);
+    
+    // Calculate total amount for percentages (only positive amounts)
+    const totalAmount = validCategories.reduce((sum, cat) => sum + cat.amount, 0);
+    
     // Calculate percentages and sort
-    const breakdown = Array.from(categoryMap.values())
+    const breakdown = validCategories
       .map(cat => ({
         ...cat,
         percentage: totalAmount > 0 ? (cat.amount / totalAmount) * 100 : 0
@@ -276,7 +352,9 @@ export class TransactionDetailsModal implements OnInit, AfterViewInit {
   }
   
   private drawChart() {
+    console.log('drawChart called - canvas exists:', !!this.chartCanvas?.nativeElement, 'categories:', this.categoryBreakdown().length);
     if (!this.chartCanvas?.nativeElement || this.categoryBreakdown().length === 0) {
+      console.log('Chart not drawn - returning early');
       return;
     }
     
@@ -318,7 +396,9 @@ export class TransactionDetailsModal implements OnInit, AfterViewInit {
                 
                 labels.forEach((label, index) => {
                   const category = data[index];
-                  label.text = `${category.icon} ${label.text}`;
+                  if (category && category.icon && category.label) {
+                    label.text = `${category.icon} ${category.label}`;
+                  }
                 });
                 
                 return labels;
@@ -336,7 +416,7 @@ export class TransactionDetailsModal implements OnInit, AfterViewInit {
             }
           }
         },
-        onClick: (event, elements) => {
+        onClick: (_event, elements) => {
           if (elements.length > 0) {
             const index = elements[0].index;
             const category = data[index];
@@ -347,6 +427,7 @@ export class TransactionDetailsModal implements OnInit, AfterViewInit {
     };
     
     this.chart = new Chart(ctx, config);
+    console.log('Chart created successfully');
   }
   
   drillDownToCategory(categoryId: string) {
@@ -384,6 +465,53 @@ export class TransactionDetailsModal implements OnInit, AfterViewInit {
       month: 'short',
       day: 'numeric'
     });
+  }
+
+  exportCategoryBreakdown() {
+    const breakdown = this.categoryBreakdown();
+    
+    if (breakdown.length === 0) {
+      alert('No category data to export');
+      return;
+    }
+
+    // CSV headers
+    const headers = ['Category', 'Amount', 'Transaction Count', 'Percentage', 'Average Transaction'];
+    
+    // CSV rows
+    const rows = breakdown.map(cat => [
+      cat.label,
+      cat.amount.toFixed(2),
+      cat.count.toString(),
+      `${cat.percentage.toFixed(2)}%`,
+      (cat.amount / cat.count).toFixed(2)
+    ]);
+
+    // Add totals row
+    const totalAmount = breakdown.reduce((sum, cat) => sum + cat.amount, 0);
+    const totalCount = breakdown.reduce((sum, cat) => sum + cat.count, 0);
+    rows.push([
+      'TOTAL',
+      totalAmount.toFixed(2),
+      totalCount.toString(),
+      '100.00%',
+      (totalAmount / totalCount).toFixed(2)
+    ]);
+
+    // Combine headers and rows
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+
+    // Download
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `expense_categories_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
   }
 
   exportToCSV() {

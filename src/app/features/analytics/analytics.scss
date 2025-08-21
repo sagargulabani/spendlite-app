@@ -202,16 +202,20 @@
     }
   }
 
+  &.investment-card {
+    border-left: 4px solid #3b82f6;
+    
+    .kpi-value {
+      color: #3b82f6;
+    }
+  }
+
   &.expense-card {
     border-left: 4px solid #ef4444;
     
     .kpi-value {
       color: #ef4444;
     }
-  }
-
-  &.net-card {
-    border-left: 4px solid #6366f1;
   }
 
   &.stats-card {

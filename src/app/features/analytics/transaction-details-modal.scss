@@ -159,13 +159,39 @@
   gap: 16px;
 }
 
+.list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
 .list-title {
   font-size: 1.125rem;
   font-weight: 600;
   color: #111827;
   margin: 0;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #e5e7eb;
+}
+
+.export-btn {
+  padding: 6px 12px;
+  background: #10b981;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  
+  &:hover {
+    background: #059669;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
 }
 
 .category-items {

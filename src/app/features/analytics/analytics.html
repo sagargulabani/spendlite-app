@@ -100,6 +100,18 @@
           </div>
         </div>
 
+        <!-- Investments Card -->
+        <div class="kpi-card investment-card clickable" (click)="showTransactionDetails('investments')">
+          <div class="kpi-header">
+            <span class="kpi-icon">📈</span>
+            <span class="kpi-label">Net Investments</span>
+          </div>
+          <div class="kpi-value">{{ formattedInvestments() }}</div>
+          <div class="kpi-subtitle">
+            Invested minus redeemed
+          </div>
+        </div>
+
         <!-- Expenses Card -->
         <div class="kpi-card expense-card clickable" (click)="showTransactionDetails('expenses')">
           <div class="kpi-header">
@@ -108,21 +120,11 @@
           </div>
           <div class="kpi-value">{{ formattedExpenses() }}</div>
           <div class="kpi-subtitle">
-            Categorized expenses only
-          </div>
-        </div>
-
-        <!-- Net Amount Card -->
-        <div class="kpi-card net-card clickable" (click)="showTransactionDetails('net')">
-          <div class="kpi-header">
-            <span class="kpi-icon">📊</span>
-            <span class="kpi-label">Net Amount</span>
-          </div>
-          <div class="kpi-value" [class.positive]="kpis().netAmount >= 0" [class.negative]="kpis().netAmount < 0">
-            {{ formattedNet() }}
-          </div>
-          <div class="kpi-subtitle">
-            Income minus expenses
+            @if (kpis().totalExpenses < 0) {
+              Net refunds exceed expenses
+            } @else {
+              After refunds & adjustments
+            }
           </div>
         </div>
 

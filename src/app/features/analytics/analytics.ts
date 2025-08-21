@@ -24,8 +24,8 @@ export class AnalyticsComponent implements OnInit {
   // Data
   kpis = signal<AnalyticsKPI>({
     totalIncome: 0,
+    totalInvestments: 0,
     totalExpenses: 0,
-    netAmount: 0,
     transactionCount: 0,
     categorizedCount: 0,
     uncategorizedCount: 0
@@ -42,8 +42,8 @@ export class AnalyticsComponent implements OnInit {
 
   // Computed values for display
   formattedIncome = computed(() => this.formatCurrency(this.kpis().totalIncome));
+  formattedInvestments = computed(() => this.formatCurrency(this.kpis().totalInvestments));
   formattedExpenses = computed(() => this.formatCurrency(this.kpis().totalExpenses));
-  formattedNet = computed(() => this.formatCurrency(this.kpis().netAmount));
   categorizedPercentage = computed(() => {
     const kpi = this.kpis();
     if (kpi.transactionCount === 0) return 0;
@@ -226,6 +226,17 @@ export class AnalyticsComponent implements OnInit {
   }
 
   formatCurrency(amount: number): string {
+    // Handle negative amounts (net refunds) with a special format
+    if (amount < 0) {
+      const formatted = new Intl.NumberFormat('en-IN', {
+        style: 'currency',
+        currency: 'INR',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+      }).format(Math.abs(amount));
+      return `(${formatted})`; // Show negative as (₹amount) accounting style
+    }
+    
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: 'INR',
@@ -238,18 +249,18 @@ export class AnalyticsComponent implements OnInit {
     return this.categoryBreakdown().filter(cat => cat.categoryId !== 'income');
   }
 
-  showTransactionDetails(filter: 'income' | 'expenses' | 'net' | 'transfers') {
+  showTransactionDetails(filter: 'income' | 'investments' | 'expenses' | 'transfers') {
     let title = '';
     
     switch (filter) {
       case 'income':
         title = 'Income Transactions';
         break;
+      case 'investments':
+        title = 'Investment Transactions';
+        break;
       case 'expenses':
         title = 'Expense Transactions';
-        break;
-      case 'net':
-        title = 'All Transactions (excluding transfers)';
         break;
       case 'transfers':
         title = 'Transfer Transactions';

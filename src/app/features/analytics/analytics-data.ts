@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { db, Transaction, Account } from '../../core/models/db';
-import { ROOT_CATEGORIES } from '../../core/models/category.model';
+import { ROOT_CATEGORIES, isExpenseCategory } from '../../core/models/category.model';
 
 export interface AnalyticsFilters {
   startDate?: Date;
@@ -10,8 +10,8 @@ export interface AnalyticsFilters {
 
 export interface AnalyticsKPI {
   totalIncome: number;
+  totalInvestments: number;
   totalExpenses: number;
-  netAmount: number;
   transactionCount: number;
   categorizedCount: number;
   uncategorizedCount: number;
@@ -60,6 +60,7 @@ export class AnalyticsDataService {
     }
 
     // Calculate KPIs
+    console.log(`Calculating KPIs for ${filteredTransactions.length} filtered transactions`);
     const kpis = this.calculateKPIs(filteredTransactions);
     
     // Calculate category breakdown
@@ -77,9 +78,17 @@ export class AnalyticsDataService {
 
   private calculateKPIs(transactions: Transaction[]): AnalyticsKPI {
     let totalIncome = 0;
+    let totalInvestments = 0;
     let totalExpenses = 0;
     let categorizedCount = 0;
     let uncategorizedCount = 0;
+
+    // Debug: Track expenses by category and refunds
+    const expensesByCategory: Record<string, number> = {};
+    const refundsByCategory: Record<string, { count: number; amount: number }> = {};
+    
+    let investmentCount = 0;
+    let skippedInvestments = 0;
 
     for (const txn of transactions) {
       // Track categorization status
@@ -97,32 +106,88 @@ export class AnalyticsDataService {
 
       // Skip internal transfers from income/expense calculations
       if (txn.isInternalTransfer) {
-        continue; // Don't count in income or expenses
-      }
-
-      // Skip investments from income/expense calculations
-      // Investments are asset transfers, not expenses
-      if (txn.category === 'investments') {
+        if (txn.category === 'investments') {
+          skippedInvestments++;
+          console.log(`Skipping internal transfer investment: ${txn.narration}, Amount: ${txn.amount}`);
+        }
         continue; // Don't count in income or expenses
       }
 
       // Income is transactions with 'income' category
       if (txn.category === 'income') {
         totalIncome += Math.abs(txn.amount);
-      } else if (txn.amount < 0) {
-        // Expenses are negative amounts (excluding income, transfers, investments, and uncategorized)
-        totalExpenses += Math.abs(txn.amount);
-      } else if (txn.amount > 0 && txn.category !== 'income') {
-        // Positive amounts that aren't categorized as income might be refunds
-        // We'll count them as reducing expenses
-        totalExpenses -= txn.amount;
+      } else if (txn.category === 'investments') {
+        // Track NET investments (money out minus money back)
+        investmentCount++;
+        if (txn.amount < 0) {
+          // Money going into investments
+          const absAmount = Math.abs(txn.amount);
+          totalInvestments += absAmount;
+          console.log(`Investment OUT #${investmentCount}: Amount: ${txn.amount}, Added: +${absAmount}, Running total: ${totalInvestments}`);
+        } else {
+          // Money coming back from investments (redemptions/returns) - SUBTRACT from total
+          totalInvestments -= txn.amount;
+          console.log(`Investment RETURN #${investmentCount}: Amount: ${txn.amount}, Subtracted: -${txn.amount}, Running total: ${totalInvestments}`);
+        }
+      } else if (isExpenseCategory(txn.category)) {
+        // Use shared logic to determine if it's an expense
+        if (txn.amount < 0) {
+          const expenseAmount = Math.abs(txn.amount);
+          totalExpenses += expenseAmount;
+          
+          // Debug: Track by category
+          if (!expensesByCategory[txn.category]) {
+            expensesByCategory[txn.category] = 0;
+          }
+          expensesByCategory[txn.category] += expenseAmount;
+        } else {
+          // Positive amounts in expense categories are refunds
+          totalExpenses -= txn.amount;
+          
+          // Debug: Track refunds
+          if (!expensesByCategory[txn.category]) {
+            expensesByCategory[txn.category] = 0;
+          }
+          expensesByCategory[txn.category] -= txn.amount;
+          
+          // Track refund details
+          if (!refundsByCategory[txn.category]) {
+            refundsByCategory[txn.category] = { count: 0, amount: 0 };
+          }
+          refundsByCategory[txn.category].count++;
+          refundsByCategory[txn.category].amount += txn.amount;
+        }
+      }
+      // Note: transfers are automatically excluded by isExpenseCategory
+    }
+
+    // Debug logging
+    console.log('=== KPI Calculation Debug ===');
+    console.log('Total transactions:', transactions.length);
+    console.log('Categorized:', categorizedCount);
+    console.log('Uncategorized:', uncategorizedCount);
+    console.log('Total Income:', totalIncome);
+    console.log(`Total Investments: ${totalInvestments} (from ${investmentCount} transactions, skipped ${skippedInvestments} internal transfers)`);
+    console.log('Total Expenses (after refunds):', totalExpenses);
+    console.log('Expenses by Category (net after refunds):', expensesByCategory);
+    
+    // Log refunds if any
+    if (Object.keys(refundsByCategory).length > 0) {
+      console.log('REFUNDS DETECTED:');
+      for (const [category, data] of Object.entries(refundsByCategory)) {
+        console.log(`  ${category}: ${data.count} refunds totaling ₹${data.amount}`);
       }
     }
+    
+    // Calculate sum to verify
+    const calculatedSum = Object.values(expensesByCategory).reduce((sum, val) => sum + val, 0);
+    console.log('Calculated sum from categories:', calculatedSum);
+    console.log('============================');
 
     return {
       totalIncome,
-      totalExpenses: Math.max(0, totalExpenses), // Ensure non-negative
-      netAmount: totalIncome - totalExpenses,
+      totalInvestments,
+      totalExpenses: totalExpenses, // Keep the actual value, even if negative
       transactionCount: transactions.length,
       categorizedCount,
       uncategorizedCount
@@ -137,7 +202,21 @@ export class AnalyticsDataService {
       const categoryId = txn.category || 'uncategorized';
       
       const existing = categoryMap.get(categoryId) || { amount: 0, count: 0 };
-      existing.amount += Math.abs(txn.amount);
+      
+      // For expense categories, handle refunds properly
+      if (isExpenseCategory(categoryId) && !txn.isInternalTransfer) {
+        if (txn.amount < 0) {
+          // Normal expense - add the absolute amount
+          existing.amount += Math.abs(txn.amount);
+        } else {
+          // Refund - subtract from the total
+          existing.amount -= txn.amount;
+        }
+      } else {
+        // For income, investments, transfers, and uncategorized - use absolute value
+        existing.amount += Math.abs(txn.amount);
+      }
+      
       existing.count++;
       
       // Mark transfers category if it contains internal transfers
@@ -149,10 +228,16 @@ export class AnalyticsDataService {
     }
 
     const totalAmount = Array.from(categoryMap.values())
+      .filter(cat => cat.amount > 0) // Only count positive amounts for percentage calculation
       .reduce((sum, cat) => sum + cat.amount, 0);
 
     const breakdown: CategoryAnalytics[] = [];
     for (const [categoryId, data] of categoryMap.entries()) {
+      // Skip categories with zero or negative amounts (net refunds)
+      if (data.amount <= 0) {
+        continue;
+      }
+      
       if (categoryId === 'uncategorized') {
         // Add uncategorized as a special category
         breakdown.push({
@@ -182,6 +267,24 @@ export class AnalyticsDataService {
 
     // Sort by amount descending
     breakdown.sort((a, b) => b.amount - a.amount);
+
+    // Debug: Log category breakdown for expense categories
+    console.log('=== Category Breakdown Debug ===');
+    const expenseCategories = breakdown.filter(cat => 
+      cat.categoryId !== 'income' && 
+      cat.categoryId !== 'investments' && 
+      cat.categoryId !== 'transfers' &&
+      cat.categoryId !== 'uncategorized'
+    );
+    
+    console.log('Expense Categories:');
+    expenseCategories.forEach(cat => {
+      console.log(`${cat.label}: ${cat.amount}`);
+    });
+    
+    const totalExpenseFromBreakdown = expenseCategories.reduce((sum, cat) => sum + cat.amount, 0);
+    console.log('Total from expense categories:', totalExpenseFromBreakdown);
+    console.log('================================');
 
     return breakdown;
   }
