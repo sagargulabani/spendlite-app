@@ -292,6 +292,9 @@ export class AnalyticsDataService {
   private calculateMonthlyTrend(transactions: Transaction[]): any[] {
     const monthlyData = new Map<string, { income: number; expenses: number; transfers: number; investments: number; uncategorized: number }>();
 
+    console.log('=== Monthly Trend Calculation ===');
+    console.log('Total transactions to process:', transactions.length);
+
     for (const txn of transactions) {
       const date = new Date(txn.date);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -320,12 +323,15 @@ export class AnalyticsDataService {
       
       if (txn.category === 'income') {
         existing.income += Math.abs(txn.amount);
-      } else if (txn.amount < 0) {
-        // Expenses exclude transfers, investments, and uncategorized
-        existing.expenses += Math.abs(txn.amount);
-      } else if (txn.amount > 0 && txn.category !== 'income') {
-        // Refunds reduce expenses
-        existing.expenses -= txn.amount;
+      } else if (isExpenseCategory(txn.category)) {
+        // Use the same logic as KPI calculation for consistency
+        if (txn.amount < 0) {
+          // Normal expense - add the absolute amount
+          existing.expenses += Math.abs(txn.amount);
+        } else {
+          // Refund in expense category - reduce expenses
+          existing.expenses -= txn.amount;
+        }
       }
       
       monthlyData.set(monthKey, existing);
@@ -339,6 +345,16 @@ export class AnalyticsDataService {
         net: data.income - data.expenses
       }))
       .sort((a, b) => a.month.localeCompare(b.month));
+
+    // Debug logging
+    console.log('Monthly Trend Summary:');
+    trend.forEach(month => {
+      console.log(`${month.month}: Income: ₹${month.income}, Expenses: ₹${month.expenses}, Net: ₹${month.net}`);
+      if (month.transfers > 0) console.log(`  - Transfers: ₹${month.transfers}`);
+      if (month.investments > 0) console.log(`  - Investments: ₹${month.investments}`);
+      if (month.uncategorized > 0) console.log(`  - Uncategorized: ₹${month.uncategorized}`);
+    });
+    console.log('=================================');
 
     return trend;
   }

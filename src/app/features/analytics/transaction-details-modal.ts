@@ -110,8 +110,10 @@ export class TransactionDetailsModal implements OnInit, AfterViewInit {
     // If category is selected, filter by that category
     if (this.selectedCategory()) {
       txns = txns.filter(t => {
-        const categoryToMatch = t.category || 'Uncategorized';
-        return categoryToMatch === this.selectedCategory();
+        if (this.selectedCategory() === 'uncategorized') {
+          return !t.category;
+        }
+        return t.category === this.selectedCategory();
       });
     }
     
@@ -257,7 +259,12 @@ export class TransactionDetailsModal implements OnInit, AfterViewInit {
           
         case 'category':
           if (this.data.categoryId) {
-            filtered = filtered.filter(t => t.category === this.data.categoryId);
+            if (this.data.categoryId === 'uncategorized') {
+              // For uncategorized, filter transactions with no category
+              filtered = filtered.filter(t => !t.category);
+            } else {
+              filtered = filtered.filter(t => t.category === this.data.categoryId);
+            }
           }
           break;
       }

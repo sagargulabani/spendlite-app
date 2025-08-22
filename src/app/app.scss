@@ -11,10 +11,9 @@
   height: 64px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: 1000;
 
   .logo {
     display: flex;
@@ -71,6 +70,10 @@
         font-weight: 600;
       }
     }
+  }
+
+  .storage-status-wrapper {
+    margin-left: auto;
   }
 }
 

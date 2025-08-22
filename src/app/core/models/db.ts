@@ -138,5 +138,149 @@ export class SpendLiteDB extends Dexie {
   }
 }
 
+// Storage persistence utilities
+export async function requestPersistentStorage(): Promise<boolean> {
+  if ('storage' in navigator && 'persist' in navigator.storage) {
+    try {
+      // First check if already persisted
+      const isPersisted = await navigator.storage.persisted();
+      console.log('Current persistence status:', isPersisted);
+      
+      if (isPersisted) {
+        console.log('✅ Storage is already persistent');
+        return true;
+      }
+
+      // Log browser info for debugging
+      console.log('Browser info:', {
+        userAgent: navigator.userAgent,
+        cookieEnabled: navigator.cookieEnabled,
+        onLine: navigator.onLine,
+        storage: 'storage' in navigator,
+        persist: 'persist' in navigator.storage
+      });
+
+      // Request persistence
+      console.log('Requesting persistent storage...');
+      const granted = await navigator.storage.persist();
+      
+      // Check again to confirm
+      const isNowPersisted = await navigator.storage.persisted();
+      
+      console.log('Persistence request result:', {
+        granted,
+        isNowPersisted,
+        timestamp: new Date().toISOString()
+      });
+
+      if (granted || isNowPersisted) {
+        console.log('✅ Persistent storage granted');
+        return true;
+      } else {
+        console.warn('⚠️ Persistent storage denied. Chrome requirements:');
+        console.warn('- Site must be bookmarked OR');
+        console.warn('- High site engagement score OR');
+        console.warn('- Site added to home screen OR');
+        console.warn('- Push notifications enabled');
+        return false;
+      }
+    } catch (error) {
+      console.error('Error requesting persistent storage:', error);
+      return false;
+    }
+  } else {
+    console.warn('Persistent Storage API not supported in this browser');
+    return false;
+  }
+}
+
+export async function getStorageEstimate(): Promise<{
+  usage: number;
+  quota: number;
+  percentage: number;
+} | null> {
+  if ('storage' in navigator && 'estimate' in navigator.storage) {
+    try {
+      const estimate = await navigator.storage.estimate();
+      const usage = estimate.usage || 0;
+      const quota = estimate.quota || 0;
+      const percentage = quota > 0 ? (usage / quota) * 100 : 0;
+      
+      return {
+        usage,
+        quota,
+        percentage
+      };
+    } catch (error) {
+      console.error('Error getting storage estimate:', error);
+      return null;
+    }
+  }
+  return null;
+}
+
 // Create database instance
 export const db = new SpendLiteDB();
+
+// Initialize database with persistence
+let isDbInitialized = false;
+let persistenceRequested = false;
+
+export async function initializeDatabase(): Promise<boolean> {
+  if (isDbInitialized) return true;
+  
+  try {
+    // Open the database
+    await db.open();
+    console.log('✅ Database opened successfully');
+    
+    // Check if already persistent
+    const isPersisted = await checkPersistenceStatus();
+    if (isPersisted) {
+      console.log('✅ Storage is already persistent');
+      persistenceRequested = true;
+    } else {
+      console.log('ℹ️ Persistent storage not yet granted. Will request on first user interaction.');
+    }
+    
+    // Check storage quota
+    const estimate = await getStorageEstimate();
+    if (estimate) {
+      console.log(`📊 Storage: ${(estimate.usage / 1024 / 1024).toFixed(2)}MB / ${(estimate.quota / 1024 / 1024).toFixed(2)}MB (${estimate.percentage.toFixed(2)}%)`);
+      
+      // Warn if storage is getting full
+      if (estimate.percentage > 80) {
+        console.warn('⚠️ Storage usage is above 80%. Consider exporting and cleaning old data.');
+      }
+    }
+    
+    isDbInitialized = true;
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to initialize database:', error);
+    throw error;
+  }
+}
+
+export async function checkPersistenceStatus(): Promise<boolean> {
+  if ('storage' in navigator && 'persisted' in navigator.storage) {
+    try {
+      return await navigator.storage.persisted();
+    } catch (error) {
+      console.error('Error checking persistence status:', error);
+      return false;
+    }
+  }
+  return false;
+}
+
+// Request persistence on user interaction
+export async function requestPersistenceOnInteraction(): Promise<boolean> {
+  if (persistenceRequested) return true;
+  
+  const granted = await requestPersistentStorage();
+  if (granted) {
+    persistenceRequested = true;
+  }
+  return granted;
+}

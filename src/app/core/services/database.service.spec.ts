@@ -274,7 +274,7 @@ describe('Database Persistence and Migration Tests', () => {
       });
 
       // Export data
-      const exportedData = await backupService.exportData();
+      const exportedData = JSON.parse(await backupService.exportBackup());
       
       // Verify export structure
       expect(exportedData.version).toBe(4);
@@ -290,7 +290,7 @@ describe('Database Persistence and Migration Tests', () => {
       expect(accounts.length).toBe(0);
 
       // Import data back
-      await backupService.importData(exportedData);
+      await backupService.restoreBackup(JSON.stringify(exportedData));
 
       // Verify data is restored
       accounts = await db.accounts.toArray();
@@ -317,7 +317,7 @@ describe('Database Persistence and Migration Tests', () => {
       });
 
       // Auto-save to localStorage
-      await backupService.autoSaveToLocal();
+      await backupService.saveAutoBackup();
 
       // Verify localStorage has backup
       const backup = localStorage.getItem('spendlite-auto-backup');
@@ -326,9 +326,10 @@ describe('Database Persistence and Migration Tests', () => {
       // Clear database
       await db.accounts.clear();
 
-      // Restore from localStorage
-      const restored = await backupService.restoreFromLocal();
-      expect(restored).toBe(true);
+      // Restore from localStorage - get the latest auto-backup
+      const backups = backupService.getAutoBackups();
+      expect(backups.length).toBeGreaterThan(0);
+      await backupService.restoreAutoBackup(backups[0].key);
 
       // Verify data is restored
       const accounts = await db.accounts.toArray();
@@ -340,7 +341,7 @@ describe('Database Persistence and Migration Tests', () => {
       const corruptData = { invalid: 'data' };
       
       try {
-        await backupService.importData(corruptData);
+        await backupService.restoreBackup(JSON.stringify(corruptData));
         fail('Should have thrown an error');
       } catch (error: any) {
         expect(error.message).toBe('Invalid backup data');

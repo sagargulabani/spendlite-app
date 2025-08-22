@@ -65,11 +65,12 @@
             [class.error]="errors().bankName">
             <option value="">Select bank...</option>
             <option value="HDFC">HDFC Bank</option>
-            <option value="ICICI">ICICI Bank</option>
             <option value="SBI">State Bank of India</option>
-            <option value="Axis">Axis Bank</option>
-            <option value="Kotak">Kotak Mahindra</option>
-            <option value="Other">Other</option>
+            <option value="" disabled>──────────────</option>
+            <option value="" disabled>ICICI Bank (Coming soon)</option>
+            <option value="" disabled>Axis Bank (Coming soon)</option>
+            <option value="" disabled>Kotak Mahindra (Coming soon)</option>
+            <option value="" disabled>Other Banks (Coming soon)</option>
           </select>
           <span class="error-text" *ngIf="errors().bankName">{{ errors().bankName }}</span>
         </div>
