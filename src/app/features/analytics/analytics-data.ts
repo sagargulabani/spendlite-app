@@ -307,8 +307,8 @@ export class AnalyticsDataService {
         continue;
       }
       
-      // Skip internal transfers from income/expense trends
-      if (txn.isInternalTransfer) {
+      // Track transfers (both internal and external)
+      if (txn.category === 'transfers' || txn.isInternalTransfer) {
         existing.transfers += Math.abs(txn.amount);
         monthlyData.set(monthKey, existing);
         continue;
@@ -317,6 +317,14 @@ export class AnalyticsDataService {
       // Track investments separately
       if (txn.category === 'investments') {
         existing.investments += Math.abs(txn.amount);
+        monthlyData.set(monthKey, existing);
+        continue;
+      }
+      
+      // Track loans separately (not expenses)
+      if (txn.category === 'loans') {
+        // For now, loans are not tracked in monthly trend separately
+        // but they're excluded from expenses
         monthlyData.set(monthKey, existing);
         continue;
       }

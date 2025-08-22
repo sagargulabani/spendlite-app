@@ -405,6 +405,97 @@ describe('AnalyticsDataService', () => {
   });
 
   describe('Monthly Trend', () => {
+    it('should calculate expenses using isExpenseCategory helper', async () => {
+      // This test ensures expenses are calculated correctly using category logic
+      // not just by checking if amount is negative
+      const transactions: Partial<Transaction>[] = [
+        // January - Various expense categories
+        { id: 1, amount: -5000, category: 'food', date: '2024-01-01', accountId: 1, narration: 'Groceries' },
+        { id: 2, amount: -3000, category: 'transport', date: '2024-01-05', accountId: 1, narration: 'Uber' },
+        { id: 3, amount: -10000, category: 'shopping', date: '2024-01-10', accountId: 1, narration: 'Amazon' },
+        { id: 4, amount: 2000, category: 'shopping', date: '2024-01-15', accountId: 1, narration: 'Amazon Refund' },
+        
+        // Non-expense categories that should NOT be counted as expenses
+        { id: 5, amount: -20000, category: 'investments', date: '2024-01-20', accountId: 1, narration: 'Mutual Fund' },
+        { id: 6, amount: -15000, category: 'transfers', isInternalTransfer: true, date: '2024-01-22', accountId: 1, narration: 'Transfer to Savings' },
+        { id: 7, amount: -5000, category: 'loans', date: '2024-01-25', accountId: 1, narration: 'Loan EMI' },
+        { id: 8, amount: 50000, category: 'income', date: '2024-01-28', accountId: 1, narration: 'Salary' },
+        
+        // February - Test refunds properly reduce expenses
+        { id: 9, amount: -8000, category: 'health', date: '2024-02-01', accountId: 1, narration: 'Hospital' },
+        { id: 10, amount: 3000, category: 'health', date: '2024-02-05', accountId: 1, narration: 'Insurance Claim' },
+        { id: 11, amount: -2000, category: 'utilities', date: '2024-02-10', accountId: 1, narration: 'Electricity' }
+      ];
+      await db.transactions.bulkAdd(transactions as Transaction[]);
+
+      // Act
+      const result = await service.getAnalytics({});
+
+      // Assert
+      const jan = result.monthlyTrend.find(m => m.month === '2024-01');
+      // January expenses: food(5000) + transport(3000) + shopping(10000-2000) = 16000
+      // NOT including investments(20000), transfers(15000), or loans(5000)
+      expect(jan?.expenses).toBe(16000);
+      expect(jan?.income).toBe(50000);
+      expect(jan?.investments).toBe(20000);
+      expect(jan?.transfers).toBe(15000);
+      expect(jan?.net).toBe(34000); // 50000 - 16000
+
+      const feb = result.monthlyTrend.find(m => m.month === '2024-02');
+      // February expenses: health(8000-3000) + utilities(2000) = 7000
+      expect(feb?.expenses).toBe(7000);
+    });
+
+    it('should handle negative expenses when refunds exceed purchases', async () => {
+      // Test case for when refunds are greater than expenses in a month
+      const transactions: Partial<Transaction>[] = [
+        { id: 1, amount: -1000, category: 'shopping', date: '2024-01-01', accountId: 1, narration: 'Small purchase' },
+        { id: 2, amount: 5000, category: 'shopping', date: '2024-01-05', accountId: 1, narration: 'Big refund' },
+        { id: 3, amount: -500, category: 'food', date: '2024-01-10', accountId: 1, narration: 'Lunch' }
+      ];
+      await db.transactions.bulkAdd(transactions as Transaction[]);
+
+      // Act
+      const result = await service.getAnalytics({});
+
+      // Assert
+      const jan = result.monthlyTrend.find(m => m.month === '2024-01');
+      // Expenses: shopping(1000-5000=-4000) + food(500) = -3500
+      expect(jan?.expenses).toBe(-3500);
+      expect(jan?.net).toBe(3500); // 0 income - (-3500) expenses = 3500
+    });
+
+    it('should correctly categorize all transaction types in monthly trend', async () => {
+      // Comprehensive test for all transaction categorization
+      const transactions: Partial<Transaction>[] = [
+        // All different types in one month
+        { id: 1, amount: 100000, category: 'income', date: '2024-03-01', accountId: 1, narration: 'Salary' },
+        { id: 2, amount: -30000, category: 'housing', date: '2024-03-02', accountId: 1, narration: 'Rent' },
+        { id: 3, amount: -5000, category: 'utilities', date: '2024-03-03', accountId: 1, narration: 'Bills' },
+        { id: 4, amount: -10000, category: 'food', date: '2024-03-04', accountId: 1, narration: 'Groceries' },
+        { id: 5, amount: -50000, category: 'investments', date: '2024-03-05', accountId: 1, narration: 'SIP' },
+        { id: 6, amount: 10000, category: 'investments', date: '2024-03-06', accountId: 1, narration: 'Dividend' },
+        { id: 7, amount: -20000, category: 'transfers', isInternalTransfer: true, date: '2024-03-07', accountId: 1, narration: 'To Savings' },
+        { id: 8, amount: -15000, category: 'loans', date: '2024-03-08', accountId: 1, narration: 'EMI' },
+        { id: 9, amount: -8000, date: '2024-03-09', accountId: 1, narration: 'Unknown transaction' }
+      ];
+      await db.transactions.bulkAdd(transactions as Transaction[]);
+
+      // Act
+      const result = await service.getAnalytics({});
+
+      // Assert
+      const mar = result.monthlyTrend.find(m => m.month === '2024-03');
+      expect(mar?.income).toBe(100000);
+      // Expenses: housing(30000) + utilities(5000) + food(10000) = 45000
+      // NOT loans, investments, transfers, or uncategorized
+      expect(mar?.expenses).toBe(45000);
+      expect(mar?.investments).toBe(60000); // 50000 + 10000 (absolute values)
+      expect(mar?.transfers).toBe(20000);
+      expect(mar?.uncategorized).toBe(8000);
+      expect(mar?.net).toBe(55000); // 100000 - 45000
+    });
+
     it('should calculate monthly trend correctly', async () => {
       // Arrange
       const transactions: Partial<Transaction>[] = [
